@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enigmas</title>
+    <style>
+        body { background-color: black; color: white; margin: 0; font-family: sans-serif; overflow: hidden; }
+        #puzzle-number { position: absolute; top: 20px; left: 20px; font-size: 2rem; font-weight: bold; z-index: 10; }
+        #puzzle-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+    <div id="puzzle-number">#1</div>
+    <div id="puzzle-container">
+        <iframe id="game-frame" src="puzzle1.html"></iframe>
+    </div>
+
+    <script>
+        window.addEventListener('message', (event) => {
+            if (event.data === 'nextPuzzle') {
+                const frame = document.getElementById('game-frame');
+                let currentNum = parseInt(document.getElementById('puzzle-number').innerText.replace('#', ''));
+                let nextNum = currentNum + 1;
+
+                // Vibração de transição
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+
+                setTimeout(() => {
+                    document.getElementById('puzzle-number').innerText = `#${nextNum}`;
+                    frame.src = `puzzle${nextNum}.html`;
+                }, 1500);
+            }
+        });
+
+        document.getElementById('game-frame').onerror = function() {
+            this.srcdoc = "<body style='background:black;color:white;display:flex;justify-content:center;align-items:center;height:100vh'><h1>Puzzle em desenvolvimento</h1></body>";
+        };
+    </script>
+</body>
+</html>
