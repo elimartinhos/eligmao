@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
+        
+        .game-scene {
+            width: 380px; height: 500px;
+            background: #111; border: 4px solid #333;
+            border-radius: 15px; position: relative;
+            display: flex; flex-direction: column; align-items: center;
+            overflow: hidden;
+        }
+
+        /* Balão: Cresce de baixo para cima */
+        #balloon {
+            position: absolute; bottom: 120px;
+            width: 40px; height: 50px;
+            background: radial-gradient(circle at 30% 30%, #ff4d4d, #990000);
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            transition: width 0.3s, height 0.3s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+
+        #balloon::after {
+            content: ''; position: absolute; bottom: -5px; left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-bottom: 7px solid #990000;
+        }
+
+        /* Flecha: Ajustada 5px para cima (145px) */
+        #arrow {
+            position: absolute; left: -100px; top: 145px;
+            width: 60px; height: 4px; background: silver;
+            display: none; z-index: 10;
+        }
+        #arrow::after {
+            content: ''; position: absolute; right: -10px; top: -6px;
+            border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+            border-left: 12px solid silver;
+        }
+
+        /* Controles: Botões coloridos sem texto */
+        .controls { position: absolute; bottom: 30px; display: flex; gap: 40px; }
+        
+        .btn {
+            width: 60px; height: 60px; border-radius: 50%;
+            cursor: pointer; transition: 0.2s; border: 4px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .btn:active { transform: scale(0.9); }
+
+        .btn-inflate { background: #ff4d4d; box-shadow: 0 0 15px #ff4d4d; }
+        .btn-shoot { background: #1e90ff; box-shadow: 0 0 15px #1e90ff; }
+
+        /* Status de Sucesso */
+        .completed .game-scene { filter: grayscale(1) opacity(0.5); pointer-events: none; }
+        #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); }
+
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .popped { animation: pop 0.2s forwards; }
+
+        @keyframes flyAway {
+            to { bottom: 600px; transform: rotate(15deg); }
+        }
+        .flying { animation: flyAway 0.8s ease-in forwards; }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div class="game-scene" id="main-scene">
+    <div id="balloon"></div>
+    <div id="arrow"></div>
+
+    <div class="controls">
+        <div class="btn btn-inflate" onclick="inflate()"></div>
+        <div class="btn btn-shoot" onclick="shoot()"></div>
+    </div>
+</div>
+
+<script>
+    let clicks = 0;
+    let isShooting = false;
+    const balloon = document.getElementById('balloon');
+    const arrow = document.getElementById('arrow');
+
+    function inflate() {
+        if (isShooting) return;
+        clicks++;
+        if (navigator.vibrate) navigator.vibrate(10);
+
+        if (clicks <= 7) {
+            let baseWidth = 40;
+            let baseHeight = 50;
+            balloon.style.width = (baseWidth + (clicks * 20)) + 'px';
+            balloon.style.height = (baseHeight + (clicks * 30)) + 'px';
+        }
+
+        if (clicks === 8) {
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+            balloon.classList.add('flying');
+            setTimeout(resetGame, 800);
+        }
+    }
+
+    function shoot() {
+        if (isShooting) return;
+        isShooting = true;
+        arrow.style.display = 'block';
+        
+        let pos = -60;
+        let id = setInterval(() => {
+            if (pos >= 400) {
+                clearInterval(id);
+                arrow.style.display = 'none';
+                isShooting = false;
+                if (clicks < 7) resetGame();
+            } else {
+                pos += 20;
+                arrow.style.left = pos + 'px';
+                checkCollision(pos, id);
+            }
+        }, 16);
+    }
+
+    function checkCollision(arrowX, intervalId) {
+        const bRect = balloon.getBoundingClientRect();
+        const aRect = arrow.getBoundingClientRect();
+
+        if (
+            clicks === 7 &&
+            aRect.right >= bRect.left + 10 && 
+            aRect.left <= bRect.right - 10 &&
+            aRect.bottom >= bRect.top &&
+            aRect.top <= bRect.bottom
+        ) {
+            clearInterval(intervalId);
+            success();
+        }
+    }
+
+    function success() {
+        if (navigator.vibrate) navigator.vibrate(200);
+        balloon.classList.add('popped');
+        arrow.style.display = 'none';
+        
+        setTimeout(() => {
+            document.body.classList.add('completed');
+            document.getElementById('check-mark').style.display = 'block';
+            window.parent.postMessage('nextPuzzle', '*');
+        }, 300);
+    }
+
+    function resetGame() {
+        if (navigator.vibrate && clicks > 0) navigator.vibrate(50);
+        clicks = 0;
+        isShooting = false;
+        balloon.className = '';
+        balloon.style.width = '40px';
+        balloon.style.height = '50px';
+        arrow.style.display = 'none';
+    }
+</script>
+</body>
+</html>

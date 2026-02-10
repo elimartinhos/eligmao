@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
+        .case { width: 400px; height: 650px; background: #1a1a1a; border: 4px solid #333; border-radius: 15px; display: flex; flex-direction: column; align-items: center; padding: 20px; position: relative; transition: 0.3s; }
+        
+        /* Estado Finalizado */
+        .completed .case { filter: grayscale(1) brightness(0.2); pointer-events: none; }
+        #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); pointer-events: none; }
+
+        .wire-zone { display: flex; justify-content: space-between; width: 320px; height: 480px; background: #222; border: 2px solid #333; border-radius: 10px; padding: 20px; position: relative; margin-top: 20px; }
+        .column { display: flex; flex-direction: column; justify-content: space-between; z-index: 2; }
+        
+        .borne { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #444; cursor: pointer; transition: 0.1s; background: #111; }
+        .borne:hover { border-color: #666; }
+        
+        /* Cores dos bornes da esquerda */
+        #L1 { border-color: #ff0000; } #L2 { border-color: #00ff00; } #L3 { border-color: #0000ff; } #L4 { border-color: #ffff00; }
+        #L5 { border-color: #ff00ff; } #L6 { border-color: #00ffff; } #L7 { border-color: #ffa500; } #L8 { border-color: #ffffff; }
+
+        .borne.selected { transform: scale(1.2); box-shadow: 0 0 15px white; border-color: white !important; }
+        .borne.correct { background: #00ff00 !important; border-color: #fff !important; box-shadow: 0 0 10px #00ff00; }
+        
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        line { stroke: #00ff00; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 3px #00ff00); }
+        
+        .status { margin-top: 20px; font-family: monospace; color: #555; font-size: 0.9rem; letter-spacing: 1px; }
+        .btn-reset { margin-top: 15px; padding: 8px 16px; background: #333; color: #888; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 0.7rem; }
+    </style>
+</head>
+<body class="300kmh">
+<div id="check-mark">✓</div>
+<div class="case" id="main-case">
+    <div class="wire-zone" id="panel">
+        <svg id="svg-canvas"></svg>
+        <div class="column" id="col-L"></div>
+        <div class="column" id="col-R"></div>
+    </div>
+
+    <div class="status" id="st">CONEXÕES: 0/8</div>
+    <button class="btn-reset" onclick="resetPuzzle()">RESET MANUAL</button>
+</div>
+
+<script>
+    // Mapeamento fixo (L1-R8, L2-R7...) ou você pode embaralhar
+    const solution = { 'L1':'R8', 'L2':'R7', 'L3':'R6', 'L4':'R5', 'L5':'R4', 'L6':'R3', 'L7':'R2', 'L8':'R1' };
+    // Inverso para busca bidirecional
+    Object.keys(solution).forEach(k => solution[solution[k]] = k);
+
+    let selected = null;
+    let connections = 0;
+
+    // Criar bornes dinamicamente
+    const colL = document.getElementById('col-L');
+    const colR = document.getElementById('col-R');
+    for(let i=1; i<=8; i++) {
+        colL.innerHTML += `<div class="borne" id="L${i}" onclick="handleClick('L${i}')"></div>`;
+        colR.innerHTML += `<div class="borne" id="R${i}" onclick="handleClick('R${i}')"></div>`;
+    }
+
+    function handleClick(id) {
+        const el = document.getElementById(id);
+        if (el.classList.contains('correct')) return;
+
+        if (!selected) {
+            selected = id;
+            el.classList.add('selected');
+            vib(15);
+        } else {
+            if (selected === id) {
+                el.classList.remove('selected');
+                selected = null;
+                return;
+            }
+            
+            // Lógica de Conexão
+            if (id[0] !== selected[0] && solution[selected] === id) {
+                connect(selected, id);
+            } else {
+                fail();
+            }
+        }
+    }
+
+    function connect(id1, id2) {
+        document.getElementById(id1).className = 'borne correct';
+        document.getElementById(id2).className = 'borne correct';
+        draw(id1, id2);
+        connections++;
+        selected = null;
+        vib([40, 40]);
+        document.getElementById('st').innerText = `CONEXÕES: ${connections}/8`;
+        
+        if (connections === 8) {
+            setTimeout(() => {
+                document.body.classList.add('completed');
+                document.getElementById('check-mark').style.display = 'block';
+                window.parent.postMessage('nextPuzzle', '*');
+            }, 400);
+        }
+    }
+
+    function fail() {
+        vib(400);
+        const caseEl = document.getElementById('main-case');
+        caseEl.style.borderColor = '#ff0000';
+        setTimeout(() => { 
+            caseEl.style.borderColor = '#333';
+            resetPuzzle();
+        }, 200);
+    }
+
+    function draw(id1, id2) {
+        const b1 = document.getElementById(id1).getBoundingClientRect();
+        const b2 = document.getElementById(id2).getBoundingClientRect();
+        const pane = document.getElementById('panel').getBoundingClientRect();
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", (b1.left + 15) - pane.left);
+        line.setAttribute("y1", (b1.top + 15) - pane.top);
+        line.setAttribute("x2", (b2.left + 15) - pane.left);
+        line.setAttribute("y2", (b2.top + 15) - pane.top);
+        document.getElementById('svg-canvas').appendChild(line);
+    }
+
+    function resetPuzzle() {
+        selected = null;
+        connections = 0;
+        document.querySelectorAll('.borne').forEach(b => b.className = 'borne');
+        document.getElementById('svg-canvas').innerHTML = '';
+        document.getElementById('st').innerText = "SISTEMA REINICIADO";
+        vib(50);
+    }
+
+    function vib(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+</script>
+</body>
+</html>

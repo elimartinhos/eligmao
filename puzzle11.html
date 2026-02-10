@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
+        .case { width: 380px; height: 600px; background: #1a1a1a; border: 4px solid #333; border-radius: 15px; display: flex; flex-direction: column; align-items: center; padding: 20px; position: relative; transition: 0.3s; }
+        
+        .completed .case { filter: grayscale(1) brightness(0.2); pointer-events: none; }
+        #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); pointer-events: none; }
+
+        /* Celular */
+        .phone-container { width: 50px; height: 85px; border: 2px solid white; border-radius: 6px; margin-top: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .phone-container::after { content: ''; width: 10px; height: 2px; background: white; position: absolute; bottom: 4px; border-radius: 1px; }
+        
+        /* Wi-Fi */
+        .wifi-icon { position: relative; width: 30px; height: 20px; display: flex; justify-content: center; }
+        .wifi-arc { position: absolute; border: 2px solid white; border-radius: 50%; border-left-color: transparent; border-right-color: transparent; border-bottom-color: transparent; opacity: 0.4; transition: 0.3s; }
+        .arc-1 { width: 26px; height: 26px; top: 0; }
+        .arc-2 { width: 16px; height: 16px; top: 6px; }
+        .wifi-dot { width: 4px; height: 4px; background: white; border-radius: 50%; position: absolute; bottom: -2px; opacity: 0.4; transition: 0.3s; }
+        
+        /* Proibido */
+        .no-signal-slash { position: absolute; width: 35px; height: 2px; background: #ff0000; transform: rotate(-45deg); top: 10px; z-index: 5; box-shadow: 0 0 5px #ff0000; opacity: 1; transition: 0.2s; }
+
+        /* Estado Conectado (Apenas Ícone Verde) */
+        .connected-ui .wifi-arc { border-top-color: #00ff00; opacity: 1; box-shadow: 0 0 5px #00ff00; }
+        .connected-ui .wifi-dot { background-color: #00ff00; opacity: 1; box-shadow: 0 0 5px #00ff00; }
+        .connected-ui .no-signal-slash { opacity: 0; }
+
+        /* Área dos Anéis */
+        .core-zone { width: 300px; height: 320px; position: relative; display: flex; justify-content: center; align-items: center; margin-top: 20px; cursor: pointer; }
+        .ring { position: absolute; border: 8px solid transparent; border-top-color: #333; border-radius: 50%; }
+        #ring-1 { width: 100px; height: 100px; }
+        #ring-2 { width: 180px; height: 180px; }
+        #ring-3 { width: 260px; height: 260px; }
+        .ring.locked { border-top-color: #00ff00 !important; } 
+        .ring.active { border-top-color: #0088ff; }
+        .center-dot { width: 12px; height: 12px; background: white; border-radius: 50%; box-shadow: 0 0 10px white; }
+
+        .status { margin-top: 40px; font-family: monospace; color: white; letter-spacing: 2px; text-align: center; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+<div id="check-mark">✓</div>
+<div class="case" id="main-case">
+    <div id="phone" class="phone-container">
+        <div class="wifi-icon">
+            <div class="wifi-arc arc-1"></div>
+            <div class="wifi-arc arc-2"></div>
+            <div class="wifi-dot"></div>
+            <div id="slash" class="no-signal-slash"></div>
+        </div>
+    </div>
+
+    <div class="core-zone" onclick="attemptLock()">
+        <div id="ring-3" class="ring"></div>
+        <div id="ring-2" class="ring"></div>
+        <div id="ring-1" class="ring"></div>
+        <div class="center-dot"></div>
+    </div>
+
+    <div class="status" id="st">TENTANDO CONECTAR</div>
+</div>
+
+<script>
+    let currentRing = 1;
+    let angles = [0, 0, 0, 0];
+    let baseSpeeds = [0, 2.5, -2, 1.8]; 
+    let currentSpeeds = [...baseSpeeds];
+    let locked = [false, false, false, false];
+    let animFrame;
+
+    function update() {
+        for (let i = 1; i <= 3; i++) {
+            if (!locked[i]) {
+                angles[i] = (angles[i] + currentSpeeds[i]) % 360;
+                document.getElementById('ring-' + i).style.transform = `rotate(${angles[i]}deg)`;
+                if (i === currentRing) document.getElementById('ring-' + i).classList.add('active');
+                else document.getElementById('ring-' + i).classList.remove('active');
+            }
+        }
+        animFrame = requestAnimationFrame(update);
+    }
+
+    function attemptLock() {
+        if (currentRing > 3) return;
+        let normalizedAngle = ((angles[currentRing] % 360) + 360) % 360;
+        if (normalizedAngle < 15 || normalizedAngle > 345) { lockSuccess(); } 
+        else { lockFail(); }
+    }
+
+    function lockSuccess() {
+        vib([30, 30]);
+        locked[currentRing] = true;
+        document.getElementById('ring-' + currentRing).classList.replace('active', 'locked');
+        currentRing++;
+        if (currentRing <= 3) {
+            currentSpeeds = currentSpeeds.map(s => s * 2.0);
+            document.getElementById('st').innerText = `LINK: ${currentRing-1}/3`;
+        }
+        if (currentRing > 3) success();
+    }
+
+    function lockFail() {
+        vib(400);
+        currentRing = 1;
+        currentSpeeds = [...baseSpeeds];
+        for (let i = 1; i <= 3; i++) {
+            locked[i] = false;
+            document.getElementById('ring-' + i).className = 'ring';
+        }
+        document.getElementById('st').innerText = "FALHA DE SINAL";
+        document.getElementById('main-case').style.borderColor = 'red';
+        setTimeout(() => {
+            document.getElementById('main-case').style.borderColor = '#333';
+            document.getElementById('st').innerText = "TENTANDO CONECTAR";
+        }, 500);
+    }
+
+    function success() {
+        cancelAnimationFrame(animFrame);
+        document.getElementById('st').innerText = "CONECTADO";
+        document.getElementById('main-case').classList.add('connected-ui');
+        vib([100, 50, 100]);
+        
+        setTimeout(() => {
+            document.body.classList.add('completed');
+            document.getElementById('check-mark').style.display = 'block';
+            window.parent.postMessage('nextPuzzle', '*');
+        }, 2000);
+    }
+
+    function vib(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+    update();
+</script>
+</body>
+</html>
