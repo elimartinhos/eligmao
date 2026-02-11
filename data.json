@@ -1,14 +1,3 @@
 {
-  "players": {
-    "Babi": {
-      "level": 22,
-      "pass": "21479fe4c3ed12835d73e1572d927c0853dfa5f82698e3c8ce7352df80a62972",
-      "lastUpdate": 1770848658890
-    },
-    "elimartinhos": {
-      "level": 22,
-      "pass": "894a8d014804accbd428e0ab7c61cf061ed82a694e8dd2c9e4fbbd71f351d583",
-      "lastUpdate": 1770848728304
-    }
-  }
+  "players": {}
 }
