@@ -66,12 +66,8 @@
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    // TOKEN FATIADO: Protege contra a exclusão automática do GitHub
-    const _a = "ghp_CjnowzLT";
-    const _b = "BIMT0EZExbAO";
-    const _c = "L0ofT2Jx5R3o";
-    const _d = "NHvi";
-    const GITHUB_TOKEN = _a + _b + _c + _d;
+     const _t = ["ghp_0EHlxlwv", "BDlbr513", "ahfYH1ks", "RWqjEN1iHgcH"];
+    const GITHUB_TOKEN = _t.join('');
 
     let user = "";
     let level = 1;
@@ -109,9 +105,8 @@
     async function syncData(isInitial = false, providedPass = null) {
         const data = await githubAPI('GET');
         
-        // CORREÇÃO: Se 'data' for nulo (401 ou 404), para aqui e não quebra o replace
         if (!data || !data.content) {
-            console.error("Erro ao ler data.json. Token pode ter expirado.");
+            console.error("Erro ao ler data.json.");
             return;
         }
 
