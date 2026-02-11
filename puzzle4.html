@@ -48,7 +48,6 @@
             width: 20px; height: 15px; border: 2px solid #333; border-radius: 50%;
         }
 
-        /* Estilhaços */
         .shards-container {
             position: absolute; width: 100%; height: 100%;
             pointer-events: none; z-index: 4; display: none;
@@ -97,7 +96,13 @@
     </div>
 
     <div class="controls">
-        <div class="lever-btn" onmousedown="startCharge()" onmouseup="endCharge()" ontouchstart="startCharge()" ontouchend="endCharge()"></div>
+        <div class="lever-btn" 
+             onmousedown="startCharge()" 
+             onmouseup="endCharge()" 
+             onmouseleave="endCharge()"
+             ontouchstart="startCharge()" 
+             ontouchend="endCharge()"
+             ontouchcancel="endCharge()"></div>
         <div class="action-btn" id="fire-btn" onclick="tryFire()"></div>
     </div>
 </div>
@@ -113,7 +118,6 @@
     const fireBtn = document.getElementById('fire-btn');
     const shardsCont = document.getElementById('shards');
 
-    // Gerar estilhaços uma única vez
     for(let i=0; i<15; i++) {
         const s = document.createElement('div');
         s.className = 'shard';
@@ -125,6 +129,7 @@
 
     function startCharge() {
         if (document.body.classList.contains('completed')) return;
+        clearInterval(timerRef); // Garante que não há timer rodando
         startTime = Date.now();
         isCharging = true;
         shardsCont.style.display = 'none';
@@ -155,9 +160,10 @@
 
     function tryFire() {
         if (!fireBtn.classList.contains('ready')) return;
-        if (chargeTime >= 2.9 && chargeTime <= 3.2) {
+        // Range levemente maior para facilitar o acerto (2.8s a 3.3s)
+        if (chargeTime >= 2.8 && chargeTime <= 3.3) {
             success();
-        } else if (chargeTime > 3.2) {
+        } else if (chargeTime > 3.3) {
             explode();
         } else {
             fail();
@@ -193,6 +199,7 @@
     function reset() {
         chargeTime = 0;
         isCharging = false;
+        clearInterval(timerRef);
         glow.style.display = "block";
         glow.style.width = "0"; glow.style.height = "0";
         fireBtn.classList.remove('ready');

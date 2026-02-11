@@ -59,9 +59,22 @@
     let timerId;
     let canRotate = true;
 
+    // Criar os elementos da grid uma única vez
+    for(let i=0; i<9; i++) {
+        const p = document.createElement('div');
+        p.className = 'pipe';
+        p.id = `p${i}`;
+        p.innerHTML = `<div class="t-inner" id="t${i}"><div class="t-bar"></div><div class="t-stem"></div></div>`;
+        p.onclick = () => { if(i === currentStep && canRotate) rotate(i); };
+        grid.appendChild(p);
+    }
+
     function initPuzzle() {
-        solution = Array.from({length: 9}, () => Math.floor(Math.random() * 4));
-        solution[0] = 0; 
+        cancelAnimationFrame(timerId);
+        // Garante que a solução de cada peça nunca seja 0 (posição inicial)
+        solution = Array.from({length: 9}, () => Math.floor(Math.random() * 3) + 1);
+        solution[0] = 0; // A primeira já começa certa e travada
+        
         angles = Array(9).fill(0);
         currentStep = 1; 
         borne.classList.remove('active');
@@ -76,20 +89,12 @@
         startTimer();
     }
 
-    for(let i=0; i<9; i++) {
-        const p = document.createElement('div');
-        p.className = 'pipe';
-        p.id = `p${i}`;
-        p.innerHTML = `<div class="t-inner" id="t${i}"><div class="t-bar"></div><div class="t-stem"></div></div>`;
-        p.onclick = () => { if(i === currentStep && canRotate) rotate(i); };
-        grid.appendChild(p);
-    }
-
     function rotate(idx) {
         if (navigator.vibrate) navigator.vibrate(15);
         angles[idx] = (angles[idx] + 1) % 4;
         document.getElementById(`t${idx}`).style.transform = `rotate(${angles[idx] * 90}deg)`;
         
+        // Só liga o azul se o ângulo for exatamente o da solução
         if (angles[idx] === solution[idx]) {
             document.getElementById(`p${idx}`).classList.add('matching');
         } else {
@@ -118,9 +123,12 @@
 
     function validateStep() {
         canRotate = false;
-        if (angles[currentStep] === solution[currentStep]) {
-            document.getElementById(`p${currentStep}`).classList.replace('matching', 'locked');
-            document.getElementById(`p${currentStep}`).classList.remove('current-target');
+        const el = document.getElementById(`p${currentStep}`);
+        
+        // Validação dupla: ângulo correto E classe matching ativa
+        if (angles[currentStep] === solution[currentStep] && el.classList.contains('matching')) {
+            el.classList.replace('matching', 'locked');
+            el.classList.remove('current-target');
             currentStep++;
             
             if (currentStep === 9) {
@@ -141,7 +149,7 @@
     }
 
     function success() {
-        borne.classList.add('active'); // Acende a saída
+        borne.classList.add('active');
         document.getElementById('hint').innerText = "FLUXO ESTABELECIDO";
         if (navigator.vibrate) navigator.vibrate(200);
         
@@ -149,7 +157,7 @@
             document.body.classList.add('completed');
             document.getElementById('check-mark').style.display = 'block';
             window.parent.postMessage('nextPuzzle', '*');
-        }, 1000); // 1 segundo de delay conforme pedido
+        }, 1000);
     }
 
     initPuzzle();
