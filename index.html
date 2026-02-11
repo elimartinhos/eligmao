@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        /* Configuração de fundo e centralização do body */
         body { 
             background: black; 
             margin: 0; 
@@ -14,26 +15,34 @@
             overflow: hidden; 
         }
         
-        #wrapper {
-            width: 380px;
-            height: 600px;
+        /* Container que aplica a escala de 90% a qualquer puzzle carregado */
+        #scale-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Scale fixo de 90% como solicitado */
             transform: scale(0.9);
             transform-origin: center center;
         }
 
+        /* O wrapper mantém o tamanho original para que o iframe saiba seu espaço de trabalho */
+        #wrapper {
+            width: 380px;
+            height: 620px; /* Ajustado para acomodar puzzles como o 5 e 12 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Estilização do iframe do puzzle */
         #puzzle-frame { 
-            width: 380px; 
-            height: 600px; 
+            width: 100%; 
+            height: 100%; 
             border: none;
             background: #1a1a1a;
             border-radius: 20px;
         }
 
-        /* Botão ADMIN - Z-index alto para garantir clique */
+        /* Botão ADMIN - Fora do container de escala para manter legibilidade e clique */
         #admin-skip { 
             position: fixed; 
             top: 10px; 
@@ -45,7 +54,7 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer; 
-            z-index: 10000; /* Sempre acima de tudo */
+            z-index: 10000;
             border-radius: 8px;
             font-family: sans-serif;
         }
@@ -55,19 +64,22 @@
 
 <div id="admin-skip" onclick="skipPuzzle()">SKIP</div>
 
-<div id="wrapper">
-    <iframe id="puzzle-frame" src="puzzle1.html"></iframe>
+<div id="scale-container">
+    <div id="wrapper">
+        <iframe id="puzzle-frame" src="puzzle1.html"></iframe>
+    </div>
 </div>
 
 <script>
     let currentPuzzle = 1;
 
-    // Função de pular puzzle
+    // Função para pular puzzles manualmente
     function skipPuzzle() {
         console.log("Comando SKIP manual acionado");
         nextPuzzle();
     }
 
+    // Lógica de navegação entre os ficheiros de puzzle
     function nextPuzzle() {
         currentPuzzle++;
         const frame = document.getElementById('puzzle-frame');
@@ -76,7 +88,7 @@
         console.log("Navegando para: " + nextSrc);
     }
 
-    // Escuta o comando automático vindo de dentro dos puzzles
+    // Escuta mensagens de sucesso enviadas pelos puzzles individuais
     window.addEventListener('message', (event) => {
         if (event.data === 'nextPuzzle') {
             nextPuzzle();
