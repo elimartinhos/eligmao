@@ -6,7 +6,7 @@
     <title>ELIGMAO - Online</title>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
-        #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.8); }
+        #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); }
         #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
         #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; }
         #top-player span { color: #0f0; font-weight: bold; }
@@ -14,8 +14,8 @@
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
         input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; transition: 0.3s; }
-        button:disabled { background: #555; cursor: not-allowed; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -26,8 +26,8 @@
 
 <div id="login-screen">
     <div class="login-box">
-        <h2>ENTRAR / CRIAR</h2>
-        <input type="text" id="username-input" placeholder="Teu nome (máx 12)" maxlength="12">
+        <h2 style="margin-top:0">ENTRAR / CRIAR</h2>
+        <input type="text" id="username-input" placeholder="Usuário (máx 12)" maxlength="12">
         <br>
         <button id="login-btn" onclick="login()">ACESSAR</button>
     </div>
@@ -35,7 +35,7 @@
 
 <div id="game-header">
     <div id="puzzle-id">#1</div>
-    <div id="top-player">SINCRONIZANDO...</div>
+    <div id="top-player">CARREGANDO...</div>
     <div id="user-info">---</div>
 </div>
 
@@ -46,19 +46,13 @@
 </div>
 
 <script>
-    // CONFIGURAÇÕES
     const REPO_OWNER = "elimartinhos";
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    /**
-     * TENTATIVA DE LER O TOKEN:
-     * 1. Tenta ler de um objeto global que o Vercel pode injetar
-     * 2. Se falhar, você pode colocar o token aqui para teste rápido (MAS O GITHUB VAI RECLAMAR)
-     */
-    const GITHUB_TOKEN = "[[NEXT_PUBLIC_GITHUB_TOKEN]]".replace("[[", "").replace("]]", ""); 
-    // ^ Esta técnica acima é para sistemas de build. Se o Vercel não trocar o texto, 
-    // o código abaixo vai gerenciar o erro sem travar.
+    // MODO VERCEL: O Vercel substitui strings durante o build. 
+    // Certifique-se de que a Secret no Vercel chama-se exatamente: NEXT_PUBLIC_GITHUB_TOKEN
+    const GITHUB_TOKEN = "%NEXT_PUBLIC_GITHUB_TOKEN%"; 
 
     let user = "";
     let level = 1;
@@ -67,75 +61,74 @@
         const input = document.getElementById('username-input').value.trim();
         if (!input) return;
 
-        user = input;
-        localStorage.setItem('p_user', user);
-        
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
         btn.innerText = "CONECTANDO...";
 
+        user = input;
+        localStorage.setItem('p_user', user);
+        
         if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
         
         await syncData(true);
     }
 
-    async function fetchGithub(method = "GET", body = null, specificSha = null) {
-        // Se o token estiver vazio ou for o placeholder, o login não vai funcionar online
-        const token = GITHUB_TOKEN.includes("NEXT_PUBLIC") ? "" : GITHUB_TOKEN;
+    async function fetchFromGH(method = "GET", body = null, sha = null) {
+        // Se o token não foi injetado pelo Vercel, ele vai falhar aqui.
+        if (GITHUB_TOKEN.includes("NEXT_PUBLIC")) {
+             throw new Error("Token não injetado pelo Vercel. Verifique as variáveis de ambiente.");
+        }
 
         const headers = {
-            "Authorization": `token ${token}`,
-            "Accept": "application/vnd.github.v3+json",
+            "Authorization": `token ${GITHUB_TOKEN}`,
             "Content-Type": "application/json"
         };
-
-        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
         const options = { method, headers };
-        if (body) options.body = JSON.stringify(body);
+        if (body) options.body = JSON.stringify({
+            message: `Update ${user}`,
+            content: btoa(JSON.stringify(body, null, 2)),
+            sha: sha
+        });
 
-        const res = await fetch(url, options);
-        if (!res.ok) throw new Error("Erro na comunicação com GitHub");
+        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, options);
+        if (!res.ok) throw new Error("Erro na API do GitHub");
         return await res.json();
     }
 
     async function syncData(isInitial = false) {
         try {
-            const data = await fetchGithub("GET");
+            const data = await fetchFromGH("GET");
             const content = JSON.parse(atob(data.content));
             
-            level = content.players[user] || 1;
-
-            // Se for novo usuário, salva no GitHub
-            if (isInitial && !content.players[user]) {
-                content.players[user] = level;
-                await fetchGithub("PUT", {
-                    message: `Novo jogador: ${user}`,
-                    content: btoa(JSON.stringify(content, null, 2)),
-                    sha: data.sha
-                });
+            // CRIAÇÃO AUTOMÁTICA: Se não existe, inicia no 1
+            if (!content.players[user]) {
+                content.players[user] = 1;
+                level = 1;
+                await fetchFromGH("PUT", content, data.sha);
+            } else {
+                level = content.players[user];
             }
 
-            updateUI(content);
+            // Ranking
+            let leader = { name: "---", lvl: 0 };
+            for (let p in content.players) {
+                if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
+            }
+
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
+            document.getElementById('puzzle-id').innerText = `#${level}`;
+            document.getElementById('user-info').innerText = user.toUpperCase();
+            
             if (isInitial) {
                 document.getElementById('login-screen').style.display = 'none';
                 loadPuzzle();
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão. Verifique se o Token no Vercel está correto.");
+            alert("ERRO: O Vercel não está passando o Token. Verifique se a variável NEXT_PUBLIC_GITHUB_TOKEN foi criada corretamente nas configurações do Vercel.");
             document.getElementById('login-btn').disabled = false;
             document.getElementById('login-btn').innerText = "ACESSAR";
         }
-    }
-
-    function updateUI(content) {
-        let leader = { name: "---", lvl: 0 };
-        for (let p in content.players) {
-            if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
-        }
-        document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
-        document.getElementById('puzzle-id').innerText = `#${level}`;
-        document.getElementById('user-info').innerText = user.toUpperCase();
     }
 
     function loadPuzzle() {
@@ -146,17 +139,13 @@
         if (e.data === 'nextPuzzle') {
             level++;
             try {
-                const data = await fetchGithub("GET");
+                const data = await fetchFromGH("GET");
                 const content = JSON.parse(atob(data.content));
                 content.players[user] = level;
-                await fetchGithub("PUT", {
-                    message: `${user} passou para o nível ${level}`,
-                    content: btoa(JSON.stringify(content, null, 2)),
-                    sha: data.sha
-                });
+                await fetchFromGH("PUT", content, data.sha);
                 syncData();
                 loadPuzzle();
-            } catch (e) { console.error(e); }
+            } catch (err) { console.error(err); }
         }
     });
 
