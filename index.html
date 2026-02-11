@@ -2,9 +2,8 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
-        /* Reseta o ambiente e garante que não haja scroll */
         body, html { 
             background: #000; 
             margin: 0; 
@@ -14,27 +13,20 @@
             overflow: hidden; 
             display: flex; 
             justify-content: center; 
-            align-items: center; 
+            align-items: center;
+            position: fixed; /* Evita que a página role no Edge */
         }
         
-        /* O Container Robusto */
         #wrapper {
-            /* Dimensões base do seu puzzle */
             --base-w: 380;
             --base-h: 600;
-            
             width: calc(var(--base-w) * 1px);
             height: calc(var(--base-h) * 1px);
-            
-            /* Lógica Matemática: Compara largura e altura disponíveis e escolhe o menor multiplicador */
-            /* 100svh é a altura real visível no Android/Edge descontando barras do navegador */
-            transform: scale(min(calc(100vw / var(--base-w)), calc(100svh / var(--base-h))));
-            
             transform-origin: center center;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
+            will-change: transform; /* Melhora performance de escala */
         }
 
         #puzzle-frame { 
@@ -45,22 +37,19 @@
             border-radius: 20px;
         }
 
-        /* Botão ADMIN - Visível e prático */
         #admin-skip { 
             position: fixed; 
-            top: 15px; 
-            right: 15px; 
-            padding: 8px 15px;
-            background: #ff0000; 
-            border: 2px solid #fff;
-            color: #fff;
-            font-size: 14px;
+            top: 10px; 
+            right: 10px; 
+            padding: 5px 10px;
+            background: red; 
+            border: 1px solid white;
+            color: white;
+            font-size: 12px;
             font-weight: bold;
-            cursor: pointer; 
             z-index: 10000;
-            border-radius: 8px;
+            border-radius: 5px;
             font-family: sans-serif;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -73,33 +62,39 @@
 </div>
 
 <script>
-    let currentPuzzle = 1;
+    const wrapper = document.getElementById('wrapper');
+    const baseW = 380;
+    const baseH = 600;
 
-    function skipPuzzle() {
-        nextPuzzle();
+    function adjustScale() {
+        // Pega a largura e altura real da janela (ignorando barras do browser)
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+
+        // Calcula a escala necessária para caber (com uma margem de segurança de 2% para não colar nas bordas)
+        const scale = Math.min(winW / baseW, winH / baseH) * 0.98;
+
+        wrapper.style.transform = `scale(${scale})`;
     }
 
+    // Ajusta a escala ao carregar, ao girar a tela ou redimensionar
+    window.addEventListener('resize', adjustScale);
+    window.addEventListener('orientationchange', () => setTimeout(adjustScale, 200));
+    adjustScale();
+
+    // Lógica de navegação
+    let currentPuzzle = 1;
     function nextPuzzle() {
         currentPuzzle++;
-        const frame = document.getElementById('puzzle-frame');
-        // Adiciona um log no console para você debugar se necessário
-        console.log("Carregando: puzzle" + currentPuzzle + ".html");
-        frame.src = `puzzle${currentPuzzle}.html`;
+        document.getElementById('puzzle-frame').src = `puzzle${currentPuzzle}.html`;
     }
 
-    // Listener para o postMessage vindo dos puzzles
-    window.addEventListener('message', (event) => {
-        if (event.data === 'nextPuzzle') {
-            nextPuzzle();
-        }
+    window.addEventListener('message', (e) => {
+        if (e.data === 'nextPuzzle') nextPuzzle();
     });
 
-    // Impede o zoom de "pinça" acidental no mobile
-    document.addEventListener('touchstart', function (event) {
-        if (event.touches.length > 1) {
-            event.preventDefault();
-        }
-    }, { passive: false });
+    // Bloqueia gestos de zoom do sistema
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
 </script>
 </body>
 </html>
