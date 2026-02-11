@@ -13,33 +13,30 @@
         #user-info { color: #0f0; font-size: 16px; font-weight: bold; width: 150px; text-align: right; }
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
-        input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; }
+        input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 10px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; margin-top: 10px; }
         button:disabled { background: #333; color: #777; }
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
-        #admin-panel { position: fixed; bottom: 20px; left: 20px; background: red; padding: 10px; border-radius: 5px; display: none; z-index: 10000; }
     </style>
 </head>
 <body>
 
 <div id="login-screen">
     <div class="login-box">
-        <h2 style="margin-top:0">ENTRAR / CRIAR</h2>
+        <h2 style="margin-top:0">ELIGMAO</h2>
         <input type="text" id="username-input" placeholder="Usuário" maxlength="12">
-        <br>
-        <button id="login-btn" onclick="login()">ACESSAR</button>
+        <input type="password" id="password-input" placeholder="Senha">
+        <button id="login-btn" onclick="login()">ACESSAR / CRIAR</button>
     </div>
 </div>
 
 <div id="game-header">
     <div id="puzzle-id">#1</div>
-    <div id="top-player">SINCRONIZANDO...</div>
+    <div id="top-player">CARREGANDO...</div>
     <div id="user-info">---</div>
 </div>
-
-<div id="admin-panel">ADMIN: <button onclick="skip()">SKIP</button></div>
 
 <div id="scale-container">
     <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
@@ -49,95 +46,116 @@
     let user = "";
     let level = 1;
 
+    // Função para transformar a senha em um código impossível de ler (SHA-256)
+    async function hashPassword(string) {
+        const utf8 = new TextEncoder().encode(string);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     async function callAPI(method, body = null) {
         const response = await fetch('/api/proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ method, body })
         });
-        if (!response.ok) throw new Error("Erro na rota /api/proxy");
         return await response.json();
     }
 
     async function login() {
-        const input = document.getElementById('username-input').value.trim();
-        if (!input) return;
-
-        user = input;
-        localStorage.setItem('p_user', user);
+        const uInput = document.getElementById('username-input').value.trim();
+        const pInput = document.getElementById('password-input').value.trim();
         
+        if (!uInput || !pInput) {
+            alert("Preencha usuário e senha!");
+            return;
+        }
+
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
-        btn.innerText = "CONECTANDO...";
+        btn.innerText = "VERIFICANDO...";
 
-        if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
+        user = uInput;
+        const hashedPass = await hashPassword(pInput);
         
-        await syncData(true);
+        await syncData(true, hashedPass);
     }
 
-    async function syncData(isInitial = false) {
+    async function syncData(isInitial = false, providedPass = null) {
         try {
             const data = await callAPI('GET');
             const content = JSON.parse(atob(data.content));
             
-            if (!content.players[user]) {
-                content.players[user] = 1;
+            // Se o usuário já existe
+            if (content.players[user]) {
+                const userData = content.players[user];
+                
+                // Se for o login inicial, verifica a senha
+                if (isInitial) {
+                    if (userData.pass !== providedPass) {
+                        alert("Senha incorreta!");
+                        document.getElementById('login-btn').disabled = false;
+                        document.getElementById('login-btn').innerText = "ACESSAR / CRIAR";
+                        return;
+                    }
+                }
+                level = userData.level;
+            } 
+            // Se for usuário novo (Criação)
+            else if (isInitial) {
                 level = 1;
+                content.players[user] = {
+                    level: 1,
+                    pass: providedPass
+                };
                 await callAPI('PUT', {
-                    message: `Novo jogador: ${user}`,
+                    message: `Novo user: ${user}`,
                     content: btoa(JSON.stringify(content, null, 2)),
                     sha: data.sha
                 });
-            } else {
-                level = content.players[user];
             }
 
-            let leader = { name: "---", lvl: 0 };
-            for (let p in content.players) {
-                if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
-            }
-
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
+            // Atualiza UI
             document.getElementById('puzzle-id').innerText = `#${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
+            document.getElementById('top-player').innerHTML = `STATUS: <span>ONLINE</span>`;
             
             if (isInitial) {
+                localStorage.setItem('p_user', user);
+                localStorage.setItem('p_hash', providedPass); // Salva o hash para auto-login
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
         } catch (e) {
             console.error(e);
-            alert("Erro ao conectar com a API. Verifique se o arquivo api/proxy.js existe no seu repositório.");
+            alert("Erro na conexão.");
             document.getElementById('login-btn').disabled = false;
-            document.getElementById('login-btn').innerText = "ACESSAR";
         }
     }
 
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
-            try {
-                const data = await callAPI('GET');
-                const content = JSON.parse(atob(data.content));
-                content.players[user] = level;
-                await callAPI('PUT', {
-                    message: `Update ${user}`,
-                    content: btoa(JSON.stringify(content, null, 2)),
-                    sha: data.sha
-                });
-                syncData();
-                document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
-            } catch (err) { console.error(err); }
+            const data = await callAPI('GET');
+            const content = JSON.parse(atob(data.content));
+            content.players[user].level = level;
+            await callAPI('PUT', {
+                message: `Update ${user} -> Lvl ${level}`,
+                content: btoa(JSON.stringify(content, null, 2)),
+                sha: data.sha
+            });
+            document.getElementById('puzzle-id').innerText = `#${level}`;
+            document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
         }
     });
 
-    function skip() { window.postMessage('nextPuzzle', '*'); }
-
-    window.onload = () => {
-        const saved = localStorage.getItem('p_user');
-        if(saved) {
-            document.getElementById('username-input').value = saved;
-            login();
+    window.onload = async () => {
+        const savedUser = localStorage.getItem('p_user');
+        const savedHash = localStorage.getItem('p_hash');
+        if(savedUser && savedHash) {
+            user = savedUser;
+            await syncData(true, savedHash);
         }
     }
 </script>
