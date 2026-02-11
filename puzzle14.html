@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
+        
+        .case { width: 380px; height: 600px; background: #1a1a1a; border: 4px solid #333; border-radius: 20px; display: flex; flex-direction: column; align-items: center; padding: 20px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8); justify-content: center; }
+        
+        /* Área azul aumentada e margens equilibradas */
+        .court { width: 340px; height: 540px; background: linear-gradient(to bottom, #1e3a8a, #3b82f6); border-radius: 12px; position: relative; overflow: hidden; border: 2px solid #555; }
+
+        .backboard { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 80px; height: 60px; background: white; border: 2px solid #000; border-radius: 5px; }
+        .hoop { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 50px; height: 10px; background: #e63946; border-radius: 5px; z-index: 2; }
+        .net { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); width: 44px; height: 40px; border: 2px dashed rgba(255,255,255,0.5); border-top: none; border-radius: 0 0 20px 20px; }
+
+        /* Bonequinho de palito clássico */
+        .defender { position: absolute; top: 210px; left: 50%; transform: translateX(-50%); width: 60px; height: 100px; z-index: 2; }
+        .def-head { width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; margin: 0 auto; }
+        .def-body { width: 3px; height: 35px; background: white; margin: 0 auto; position: relative; }
+        /* Braços (barras) */
+        .def-body::before, .def-body::after { content: ""; position: absolute; top: 5px; width: 25px; height: 3px; background: white; }
+        .def-body::before { left: -25px; transform: rotate(-20deg); }
+        .def-body::after { right: -25px; transform: rotate(20deg); }
+        /* Pernas (barras) */
+        .def-legs { width: 40px; height: 40px; margin: 0 auto; position: relative; }
+        .def-legs::before, .def-legs::after { content: ""; position: absolute; top: 0; width: 3px; height: 30px; background: white; }
+        .def-legs::before { left: 10px; transform: rotate(15deg); }
+        .def-legs::after { right: 10px; transform: rotate(-15deg); }
+
+        .ball { position: absolute; width: 34px; height: 34px; background: #f97316; border-radius: 50%; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.4); cursor: grab; z-index: 3; touch-action: none; border: 1px solid #c2410c; }
+        
+        #slingshot-line { position: absolute; pointer-events: none; stroke: rgba(255,255,255,0.6); stroke-width: 2; stroke-dasharray: 4,4; }
+
+        .completed .case { filter: grayscale(1) opacity(0.3); pointer-events: none; }
+        #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div class="case">
+    <div class="court" id="court">
+        <div class="backboard"></div>
+        <div class="hoop" id="hoop"></div>
+        <div class="net"></div>
+        
+        <div class="defender" id="defender">
+            <div class="def-head"></div>
+            <div class="def-body"></div>
+            <div class="def-legs"></div>
+        </div>
+
+        <svg style="position:absolute; width:100%; height:100%; top:0; left:0;">
+            <line id="slingshot-line" x1="0" y1="0" x2="0" y2="0" style="display:none" />
+        </svg>
+
+        <div class="ball" id="ball"></div>
+    </div>
+</div>
+
+<script>
+    const ball = document.getElementById('ball');
+    const court = document.getElementById('court');
+    const hoop = document.getElementById('hoop');
+    const defender = document.getElementById('defender');
+    const line = document.getElementById('slingshot-line');
+    
+    // Ajuste da posição inicial (centralizado na nova largura)
+    const startX = 153; 
+    const startY = 440;
+
+    let isDragging = false;
+    let ballX = startX;
+    let ballY = startY;
+    let velX = 0;
+    let velY = 0;
+    let gravity = 0.22;
+    let isLaunched = false;
+    let hasHitWall = false;
+
+    function resetBall() {
+        isLaunched = false;
+        hasHitWall = false;
+        ballX = startX;
+        ballY = startY;
+        velX = 0;
+        velY = 0;
+        updateBallPos();
+    }
+
+    function updateBallPos() {
+        ball.style.left = ballX + 'px';
+        ball.style.top = ballY + 'px';
+    }
+
+    function vib(t) { if (navigator.vibrate) navigator.vibrate(t); }
+
+    ball.addEventListener('pointerdown', (e) => {
+        if (isLaunched) return;
+        isDragging = true;
+        ball.setPointerCapture(e.pointerId);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const rect = court.getBoundingClientRect();
+        let mouseX = e.clientX - rect.left - 17;
+        let mouseY = e.clientY - rect.top - 17;
+
+        const dist = Math.hypot(mouseX - startX, mouseY - startY);
+        if (dist > 80) {
+            const angle = Math.atan2(mouseY - startY, mouseX - startX);
+            mouseX = startX + Math.cos(angle) * 80;
+            mouseY = startY + Math.sin(angle) * 80;
+        }
+
+        ballX = mouseX;
+        ballY = mouseY;
+        updateBallPos();
+
+        line.style.display = 'block';
+        line.setAttribute('x1', startX + 17);
+        line.setAttribute('y1', startY + 17);
+        line.setAttribute('x2', ballX + 17);
+        line.setAttribute('y2', ballY + 17);
+    });
+
+    window.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        line.style.display = 'none';
+
+        velX = (startX - ballX) * 0.224;
+        velY = (startY - ballY) * 0.224;
+        
+        isLaunched = true;
+        animate();
+    });
+
+    function animate() {
+        if (!isLaunched) return;
+
+        velY += gravity;
+        ballX += velX;
+        ballY += velY;
+
+        // Limites para a largura de 340px
+        if (ballX <= 0 || ballX >= 306) {
+            velX *= -0.85; 
+            ballX = ballX <= 0 ? 0 : 306;
+            hasHitWall = true;
+            vib(15);
+        }
+
+        const bRect = ball.getBoundingClientRect();
+        const dRect = defender.getBoundingClientRect();
+
+        if (bRect.right > dRect.left && bRect.left < dRect.right &&
+            bRect.bottom > dRect.top && bRect.top < dRect.bottom) {
+            vib(100);
+            resetBall();
+            return;
+        }
+
+        const hRect = hoop.getBoundingClientRect();
+        if (hasHitWall && velY > 0 && 
+            bRect.bottom > hRect.top && bRect.top < hRect.top &&
+            bRect.left > hRect.left - 5 && bRect.right < hRect.right + 5) {
+            success();
+            return;
+        }
+
+        if (ballY > 550 || ballY < -200) {
+            resetBall();
+            return;
+        }
+
+        updateBallPos();
+        requestAnimationFrame(animate);
+    }
+
+    function success() {
+        vib([100, 50, 100]);
+        document.body.classList.add('completed');
+        document.getElementById('check-mark').style.display = 'block';
+        setTimeout(() => {
+            window.parent.postMessage('nextPuzzle', '*');
+        }, 1500);
+    }
+
+    resetBall();
+</script>
+</body>
+</html>
