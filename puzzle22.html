@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puzzle 22</title>
+    <style>
+        body { background: #0a0a0a; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #fff; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
+        
+        #game-container { position: relative; width: 272px; background: #151515; border: 3px solid #333; border-radius: 17px; padding: 17px; box-shadow: 0 17px 42px #000; display: flex; flex-direction: column; align-items: center; }
+        
+        #header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 17px; }
+        .led-container { display: flex; gap: 10px; }
+        .led { width: 12px; height: 12px; background: #200; border-radius: 50%; border: 2px solid #400; }
+        .led.active { background: #ff0000; box-shadow: 0 0 13px #f00; border-color: #ffaaaa; }
+        #progress { color: #0f0; font-size: 1rem; font-weight: bold; text-shadow: 0 0 8px rgba(0,255,0,0.5); }
+
+        #screen { width: 100%; height: 212px; background: #000; border: 2px solid #222; border-radius: 10px; position: relative; overflow: hidden; box-shadow: inset 0 0 25px #000; margin-bottom: 17px; }
+        #player { position: absolute; width: 25px; height: 25px; background: #0f0; border-radius: 4px; box-shadow: 0 0 13px #0f0; z-index: 10; will-change: left, top; }
+        .obstacle { position: absolute; background: #f00; border-radius: 3px; box-shadow: 0 0 8px #f00; height: 13px; }
+
+        #dpad { position: relative; width: 127px; height: 127px; background: #111; border-radius: 50%; box-shadow: inset 0 0 17px #000; }
+        .btn { position: absolute; background: #252525; border: 1px solid #333; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.05s; box-shadow: 0 3px 0 #000; }
+        .btn svg { width: 20px; height: 20px; fill: #555; pointer-events: none; }
+        .btn:active { background: #333; transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+        .btn:active svg { fill: #fff; }
+
+        .up { width: 34px; height: 42px; left: 47px; top: 8px; border-radius: 7px 7px 3px 3px; }
+        .down { width: 34px; height: 42px; left: 47px; bottom: 8px; border-radius: 3px 3px 7px 7px; }
+        .left { width: 42px; height: 34px; left: 8px; top: 47px; border-radius: 7px 3px 3px 7px; }
+        .right { width: 42px; height: 34px; right: 8px; top: 47px; border-radius: 3px 7px 7px 3px; }
+
+        .completed #game-container { filter: grayscale(1) opacity(0.3); pointer-events: none; }
+        #check-mark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 127px; color: #0f0; display: none; z-index: 200; pointer-events: none; text-shadow: 0 0 42px #0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div id="game-container">
+    <div id="header">
+        <div class="led-container">
+            <div id="led-1" class="led"></div>
+            <div id="led-2" class="led"></div>
+        </div>
+        <div id="progress">00%</div>
+    </div>
+
+    <div id="screen">
+        <div id="player"></div>
+    </div>
+
+    <div id="dpad">
+        <div class="btn up" onmousedown="setDir('up', true)" onmouseup="setDir('up', false)" ontouchstart="setDir('up', true)" ontouchend="setDir('up', false)"><svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg></div>
+        <div class="btn left" onmousedown="setDir('left', true)" onmouseup="setDir('left', false)" ontouchstart="setDir('left', true)" ontouchend="setDir('left', false)"><svg viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5z"/></svg></div>
+        <div class="btn right" onmousedown="setDir('right', true)" onmouseup="setDir('right', false)" ontouchstart="setDir('right', true)" ontouchend="setDir('right', false)"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5z"/></svg></div>
+        <div class="btn down" onmousedown="setDir('down', true)" onmouseup="setDir('down', false)" ontouchstart="setDir('down', true)" ontouchend="setDir('down', false)"><svg viewBox="0 0 24 24"><path d="M7 10l5 5-5-5z"/></svg></div>
+    </div>
+</div>
+
+<script>
+    const player = document.getElementById('player');
+    const screen = document.getElementById('screen');
+    const progressEl = document.getElementById('progress');
+    const leds = [document.getElementById('led-1'), document.getElementById('led-2')];
+    
+    let px = 120, py = 170;
+    let obstacles = [];
+    let progress = 0;
+    let errors = 0;
+    let gameActive = true;
+    let fallSpeed = 2.5;
+    let spawnRate = 45;
+    let frameCount = 0;
+
+    const keys = { up: false, down: false, left: false, right: false };
+    const pSpeed = 3.5;
+
+    function setDir(dir, active) {
+        keys[dir] = active;
+    }
+
+    function initGame() {
+        px = 120; py = 170;
+        progress = 0; errors = 0; fallSpeed = 2.5; frameCount = 0;
+        gameActive = true;
+        obstacles.forEach(o => o.el.remove());
+        obstacles = [];
+        leds.forEach(l => l.classList.remove('active'));
+        document.body.classList.remove('completed');
+        document.getElementById('check-mark').style.display = 'none';
+        updatePlayerPos();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function createObstacle() {
+        const el = document.createElement('div');
+        el.className = 'obstacle';
+        const width = 30 + Math.random() * 40;
+        const x = Math.random() * (screen.clientWidth - width);
+        el.style.width = width + 'px';
+        el.style.left = x + 'px';
+        el.style.top = '-13px';
+        screen.appendChild(el);
+        obstacles.push({ el, x, y: -13, w: width, h: 13 });
+    }
+
+    function gameLoop() {
+        if (!gameActive) return;
+        frameCount++;
+
+        if (keys.up && py > 0) py -= pSpeed;
+        if (keys.down && py < screen.clientHeight - 25) py += pSpeed;
+        if (keys.left && px > 0) px -= pSpeed;
+        if (keys.right && px < screen.clientWidth - 25) px += pSpeed;
+        
+        px = Math.max(0, Math.min(px, screen.clientWidth - 25));
+        py = Math.max(0, Math.min(py, screen.clientHeight - 25));
+        
+        updatePlayerPos();
+
+        if (frameCount % Math.floor(spawnRate) === 0) createObstacle();
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let o = obstacles[i];
+            o.y += fallSpeed;
+            o.el.style.top = o.y + 'px';
+
+            if (px < o.x + o.w && px + 25 > o.x && py < o.y + o.h && py + 25 > o.y) {
+                triggerError();
+                o.el.remove();
+                obstacles.splice(i, 1);
+                continue;
+            }
+
+            if (o.y > screen.clientHeight) {
+                o.el.remove();
+                obstacles.splice(i, 1);
+                progress += 2;
+                fallSpeed *= 1.03;
+                updateUI();
+            }
+        }
+
+        if (progress >= 100) win();
+        else requestAnimationFrame(gameLoop);
+    }
+
+    function updatePlayerPos() {
+        player.style.left = px + 'px';
+        player.style.top = py + 'px';
+    }
+
+    function triggerError() {
+        errors++;
+        if (navigator.vibrate) {
+            navigator.vibrate(200); 
+        }
+        if (errors <= 2) leds[errors - 1].classList.add('active');
+        if (errors >= 2) {
+            gameActive = false;
+            setTimeout(initGame, 1000);
+        }
+    }
+
+    function updateUI() {
+        progressEl.innerText = Math.min(100, Math.floor(progress)).toString().padStart(2, '0') + '%';
+    }
+
+    function win() {
+        gameActive = false;
+        document.body.classList.add('completed');
+        document.getElementById('check-mark').style.display = 'block';
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        setTimeout(() => { window.parent.postMessage('nextPuzzle', '*'); }, 2000);
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp') keys.up = true;
+        if (e.key === 'ArrowDown') keys.down = true;
+        if (e.key === 'ArrowLeft') keys.left = true;
+        if (e.key === 'ArrowRight') keys.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowUp') keys.up = false;
+        if (e.key === 'ArrowDown') keys.down = false;
+        if (e.key === 'ArrowLeft') keys.left = false;
+        if (e.key === 'ArrowRight') keys.right = false;
+    });
+
+    initGame();
+</script>
+</body>
+</html>
