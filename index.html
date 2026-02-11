@@ -65,11 +65,7 @@
     async function login() {
         const uInput = document.getElementById('username-input').value.trim();
         const pInput = document.getElementById('password-input').value.trim();
-        
-        if (!uInput || !pInput) {
-            alert("Preencha usuário e senha!");
-            return;
-        }
+        if (!uInput || !pInput) return alert("Preencha usuário e senha!");
 
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
@@ -77,7 +73,6 @@
 
         user = uInput;
         const hashedPass = await hashPassword(pInput);
-        
         await syncData(true, hashedPass);
     }
 
@@ -88,19 +83,20 @@
             
             if (content.players[user]) {
                 const userData = content.players[user];
-                if (isInitial) {
-                    if (userData.pass !== providedPass) {
-                        alert("Senha incorreta!");
-                        document.getElementById('login-btn').disabled = false;
-                        document.getElementById('login-btn').innerText = "ACESSAR / CRIAR";
-                        return;
-                    }
+                if (isInitial && userData.pass !== providedPass) {
+                    alert("Senha incorreta!");
+                    document.getElementById('login-btn').disabled = false;
+                    document.getElementById('login-btn').innerText = "ACESSAR / CRIAR";
+                    return;
                 }
                 level = userData.level;
-            } 
-            else if (isInitial) {
+            } else if (isInitial) {
                 level = 1;
-                content.players[user] = { level: 1, pass: providedPass };
+                content.players[user] = { 
+                    level: 1, 
+                    pass: providedPass,
+                    lastUpdate: Date.now()
+                };
                 await callAPI('PUT', {
                     message: `Novo user: ${user}`,
                     content: btoa(JSON.stringify(content, null, 2)),
@@ -108,11 +104,14 @@
                 });
             }
 
-            // LÓGICA DO LÍDER CORRIGIDA
-            let leader = { name: "---", lvl: 0 };
+            // RANKING COM DESEMPATE POR TEMPO
+            let leader = { name: "---", lvl: 0, time: Infinity };
             for (let p in content.players) {
-                if (content.players[p].level > leader.lvl) {
-                    leader = { name: p, lvl: content.players[p].level };
+                const pLvl = content.players[p].level;
+                const pTime = content.players[p].lastUpdate || 0;
+
+                if (pLvl > leader.lvl || (pLvl === leader.lvl && pTime < leader.time)) {
+                    leader = { name: p, lvl: pLvl, time: pTime };
                 }
             }
 
@@ -128,7 +127,6 @@
             }
         } catch (e) {
             console.error(e);
-            alert("Erro na conexão.");
             document.getElementById('login-btn').disabled = false;
         }
     }
@@ -138,13 +136,16 @@
             level++;
             const data = await callAPI('GET');
             const content = JSON.parse(atob(data.content));
+            
             content.players[user].level = level;
+            content.players[user].lastUpdate = Date.now(); // Salva o timestamp exato
+
             await callAPI('PUT', {
-                message: `Update ${user} -> Lvl ${level}`,
+                message: `Lvl ${level}: ${user}`,
                 content: btoa(JSON.stringify(content, null, 2)),
                 sha: data.sha
             });
-            syncData(); // Recarrega ranking e líder
+            syncData(); 
             document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
         }
     });
