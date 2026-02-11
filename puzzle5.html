@@ -4,7 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* Fundo e centralização mantidos */
         body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
+        
+        /* Container de escala para reduzir 20% (0.8) */
+        #scale-container {
+            transform: scale(0.8);
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         .phone-case { width: 380px; height: 620px; background: #1a1a1a; border: 4px solid #333; border-radius: 40px; position: relative; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
         .post-it { position: absolute; right: -30px; top: 40px; background: #ffeb3b; color: #000; padding: 8px 15px; transform: rotate(10deg); font-weight: bold; box-shadow: 2px 5px 10px rgba(0,0,0,0.3); z-index: 10; }
         .screen { width: 300px; height: 240px; background: #8fb190; border: 10px solid #111; border-radius: 5px; color: #111; padding: 12px; font-family: 'Courier New', monospace; font-size: 1.1rem; font-weight: bold; overflow-y: auto; white-space: pre-wrap; box-shadow: inset 0 0 15px rgba(0,0,0,0.6); line-height: 1.2; }
@@ -21,26 +32,28 @@
 
 <div id="check-mark">✓</div>
 
-<div class="phone-case">
-    <div class="post-it">Maria</div>
-    <div class="screen" id="scr">Em espera...</div>
+<div id="scale-container">
+    <div class="phone-case">
+        <div class="post-it">Maria</div>
+        <div class="screen" id="scr">Em espera...</div>
 
-    <div class="keypad">
-        <div class="key" onclick="press('1')">1</div>
-        <div class="key" onclick="press('2')">2</div>
-        <div class="key" onclick="press('3')">3</div>
-        <div class="key" onclick="press('4')">4</div>
-        <div class="key" onclick="press('5')">5</div>
-        <div class="key" onclick="press('6')">6</div>
-        <div class="key" onclick="press('7')">7</div>
-        <div class="key" onclick="press('8')">8</div>
-        <div class="key" onclick="press('9')">9</div>
-        <div class="key" onclick="press('*')">*</div>
-        <div class="key" onclick="press('0')">0</div>
-        <div class="key" onclick="press('#')">#</div>
-        <div class="key key-special" onclick="menu()">MENU</div>
-        <div class="key key-special" onclick="home()">⌂</div>
-        <div class="key key-call" onclick="makeCall()">📞</div>
+        <div class="keypad">
+            <div class="key" onclick="press('1')">1</div>
+            <div class="key" onclick="press('2')">2</div>
+            <div class="key" onclick="press('3')">3</div>
+            <div class="key" onclick="press('4')">4</div>
+            <div class="key" onclick="press('5')">5</div>
+            <div class="key" onclick="press('6')">6</div>
+            <div class="key" onclick="press('7')">7</div>
+            <div class="key" onclick="press('8')">8</div>
+            <div class="key" onclick="press('9')">9</div>
+            <div class="key" onclick="press('*')">*</div>
+            <div class="key" onclick="press('0')">0</div>
+            <div class="key" onclick="press('#')">#</div>
+            <div class="key key-special" onclick="menu()">MENU</div>
+            <div class="key key-special" onclick="home()">⌂</div>
+            <div class="key key-call" onclick="makeCall()">📞</div>
+        </div>
     </div>
 </div>
 
