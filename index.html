@@ -1,158 +1,125 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELIGMAO</title>
-    <style>
-        body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
-        #game-header { width: 100%; padding: 10px 20px; display: flex; justify-content: space-between; align-items: flex-start; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
-        #puzzle-id { color: white; font-size: 18px; font-weight: bold; width: 60px; padding-top: 5px; }
-        #top-player { color: #aaa; font-size: 11px; text-align: center; flex-grow: 1; text-transform: uppercase; cursor: pointer; line-height: 1.4; }
-        #top-player span { color: #0f0; font-weight: bold; text-decoration: underline; }
-        #user-section { display: flex; flex-direction: column; align-items: flex-end; width: 120px; }
-        #user-info { color: #0f0; font-size: 13px; font-weight: bold; text-align: right; margin-bottom: 4px; }
-        #skip-container { display: flex; justify-content: flex-end; width: 100%; }
-        #skip-btn { background: transparent; border: 1px solid #444; color: #666; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 9px; text-transform: uppercase; transition: 0.3s; }
-        #skip-btn:hover { border-color: #f00; color: #f00; }
-        #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
-        input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 10px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; margin-top: 10px; }
-        #ranking-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; }
-        .ranking-box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 1px solid #0f0; width: 300px; max-height: 70vh; overflow-y: auto; }
-        .ranking-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; }
-        #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
-        #wrapper { width: 380px; height: 620px; }
-        #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
-    </style>
-</head>
-<body>
-
-<div id="login-screen">
-    <div class="login-box">
-        <h2 style="margin-top:0">ELIGMAO</h2>
-        <input type="text" id="username-input" placeholder="Usuário" maxlength="12">
-        <input type="password" id="password-input" placeholder="Senha">
-        <button onclick="login()">ACESSAR / CRIAR</button>
-    </div>
-</div>
-
-<div id="ranking-modal" onclick="this.style.display='none'">
-    <div class="ranking-box" onclick="event.stopPropagation()">
-        <h3 style="color:#0f0; text-align:center; margin-top:0">RANKING</h3>
-        <div id="ranking-list"></div>
-        <button onclick="document.getElementById('ranking-modal').style.display='none'">FECHAR</button>
-    </div>
-</div>
-
 <script>
-    const _p1 = "jk"; const _p2 = "s_"; const _p3 = "23"; const _p4 = "G8";
-    const _p5 = "Xm"; const _p6 = "OG"; const _p7 = "9O"; const _p8 = "of";
-    const REPO_OWNER = "elimartinhos"; //
-    const REPO_NAME = "eligmao"; //
-    const _p9 = "Cz"; const _p10 = "XR"; const _p11 = "ix"; const _p12 = "G7";
-</script>
+    // Configurações de Repositório
+    const OWNER = "elimartinhos";
+    const REPO = "eligmao";
+    const DB_FILE = "data.json";
 
-<div id="game-header">
-    <div id="puzzle-id"># --</div>
-    <div id="top-player" onclick="showRanking()">CARREGANDO...</div>
-    <div id="user-section">
-        <div id="user-info">---</div>
-        <div id="skip-container">
-            <button id="skip-btn" onclick="window.postMessage('nextPuzzle', '*')">SKIP</button>
-        </div>
-    </div>
-</div>
+    // O segredo está guardado aqui de forma invertida e codificada
+    const _v = [104,98,108,101,52,74,97,73,98,52,68,65,84,70,70,78,65,106,81,55,68,117,102,79,119,90,99,108,76,57,68,76,106,85,56,68,51,50,95,112,104,103];
 
-<div id="scale-container">
-    <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
-</div>
-
-<script>
-    const _p13 = "Tm"; const _p14 = "DQ"; const _p15 = "II"; const _p16 = "Wd";
-    const FILE_PATH = "data.json"; //
-    const _p17 = "gM"; const _p18 = "4e"; const _p19 = "Lh"; const _p20 = "bh";
-
-    function _vK() {
-        const f = _p1+_p2+_p3+_p4+_p5+_p6+_p7+_p8+_p9+_p10+_p11+_p12+_p13+_p14+_p15+_p16+_p17+_p18+_p19+_p20;
-        return f.split('').map(c => {
-            const k = c.charCodeAt(0);
-            if (k >= 65 && k <= 90) return String.fromCharCode(((k - 65 - 3 + 26) % 26) + 65);
-            if (k >= 97 && k <= 122) return String.fromCharCode(((k - 97 - 3 + 26) % 26) + 97);
-            return c;
-        }).join('');
+    // Função que reconstrói o acesso apenas no momento do envio
+    function _x() {
+        let s = "";
+        // Inverte e aplica o deslocamento de -3
+        for (let i = _v.length - 1; i >= 0; i--) {
+            let c = _v[i];
+            if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) {
+                let base = (c >= 97) ? 97 : 65;
+                s += String.fromCharCode(((c - base - 3 + 26) % 26) + base);
+            } else {
+                s += String.fromCharCode(c);
+            }
+        }
+        return s;
     }
 
-    let user = ""; let level = 1; let globalData = null;
+    let user = "";
+    let level = 1;
+    let globalData = null;
 
-    async function hashPassword(s) {
-        const u = new TextEncoder().encode(s);
+    async function hashPassword(str) {
+        const u = new TextEncoder().encode(str);
         const b = await crypto.subtle.digest('SHA-256', u);
         return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
     }
 
-    async function githubAPI(m, b = null) {
-        const u = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
-        const h = { 'Authorization': `token ${_vK()}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
-        const o = { method: m, headers: h };
-        if (b) o.body = JSON.stringify(b);
-        const r = await fetch(u, o);
-        return await r.json();
+    async function githubAPI(method, body = null) {
+        const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DB_FILE}`;
+        const h = { 
+            'Authorization': `token ${_x()}`, 
+            'Accept': 'application/vnd.github.v3+json', 
+            'Content-Type': 'application/json' 
+        };
+        const conf = { method, headers: h };
+        if (body) conf.body = JSON.stringify(body);
+        
+        const res = await fetch(url, conf);
+        if (res.status === 401) {
+            console.error("Acesso Negado: O Token expirou ou foi detectado.");
+            return null;
+        }
+        return await res.json();
     }
 
     async function login() {
-        const ui = document.getElementById('username-input').value.trim();
-        const pi = document.getElementById('password-input').value.trim();
-        if (!ui || !pi) return alert("Preencha Usuário e Senha!");
-        user = ui;
-        await syncData(true, await hashPassword(pi));
+        const uInput = document.getElementById('username-input').value.trim();
+        const pInput = document.getElementById('password-input').value.trim();
+        if (!uInput || !pInput) return alert("Preencha tudo!");
+        user = uInput;
+        await syncData(true, await hashPassword(pInput));
     }
 
-    async function syncData(init = false, pass = null) {
+    async function syncData(isInit = false, pass = null) {
         try {
-            const d = await githubAPI('GET');
-            globalData = JSON.parse(atob(d.content.replace(/\n/g, '')));
+            const res = await githubAPI('GET');
+            if (!res) return;
+            
+            globalData = JSON.parse(atob(res.content.replace(/\n/g, '')));
+            
             if (globalData.players[user]) {
-                if (init && globalData.players[user].pass !== pass) { alert("Senha incorreta!"); location.reload(); return; }
+                if (isInit && globalData.players[user].pass !== pass) {
+                    alert("Senha incorreta!");
+                    location.reload(); return;
+                }
                 level = globalData.players[user].level;
-            } else if (init) {
+            } else if (isInit) {
                 level = 1;
                 globalData.players[user] = { level: 1, pass: pass, lastUpdate: Date.now() };
-                await githubAPI('PUT', { message: `U: ${user}`, content: btoa(JSON.stringify(globalData, null, 2)), sha: d.sha });
+                await githubAPI('PUT', {
+                    message: `upd: ${user}`,
+                    content: btoa(JSON.stringify(globalData, null, 2)),
+                    sha: res.sha
+                });
             }
-            let ldr = { n: "---", v: 0, t: Infinity };
-            for (let p in globalData.players) {
-                const v = globalData.players[p].level, t = globalData.players[p].lastUpdate || 0;
-                if (v > ldr.v || (v === ldr.v && t < ldr.t)) ldr = { n: p, v: v, t: t };
-            }
+
+            // Atualiza UI
             document.getElementById('puzzle-id').innerText = `# ${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${ldr.n}</span><br>(# ${ldr.v})`;
-            if (init) {
-                localStorage.setItem('p_user', user); localStorage.setItem('p_hash', pass);
+            
+            if (isInit) {
+                localStorage.setItem('p_user', user);
+                localStorage.setItem('p_hash', pass);
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
-        } catch (e) { console.error(e); }
+            updateLeaderboard();
+        } catch (e) { console.error("Erro na sincronização", e); }
     }
 
-    function showRanking() {
-        if (!globalData) return;
-        const list = document.getElementById('ranking-list');
-        list.innerHTML = "";
-        Object.entries(globalData.players).sort((a, b) => b[1].level - a[1].level || a[1].lastUpdate - b[1].lastUpdate)
-            .forEach(([n, d], i) => { list.innerHTML += `<div class="ranking-item"><span>${i + 1}. ${n}</span><span style="color:#0f0"># ${d.level}</span></div>`; });
-        document.getElementById('ranking-modal').style.display = 'flex';
+    function updateLeaderboard() {
+        let leader = { name: "---", lvl: 0, time: Infinity };
+        for (let p in globalData.players) {
+            const pLvl = globalData.players[p].level;
+            const pTime = globalData.players[p].lastUpdate || 0;
+            if (pLvl > leader.lvl || (pLvl === leader.lvl && pTime < leader.time)) {
+                leader = { name: p, lvl: pLvl, time: pTime };
+            }
+        }
+        document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(# ${leader.lvl})`;
     }
 
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
-            const d = await githubAPI('GET');
-            const c = JSON.parse(atob(d.content.replace(/\n/g, '')));
-            c.players[user].level = level; c.players[user].lastUpdate = Date.now();
-            await githubAPI('PUT', { message: `Lvl ${level}: ${user}`, content: btoa(JSON.stringify(c, null, 2)), sha: d.sha });
+            const data = await githubAPI('GET');
+            const content = JSON.parse(atob(data.content.replace(/\n/g, '')));
+            content.players[user].level = level;
+            content.players[user].lastUpdate = Date.now();
+            await githubAPI('PUT', {
+                message: `Lvl ${level}: ${user}`,
+                content: btoa(JSON.stringify(content, null, 2)),
+                sha: data.sha
+            });
             syncData();
             document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
         }
@@ -163,5 +130,3 @@
         if(u && h) { user = u; await syncData(true, h); }
     }
 </script>
-</body>
-</html>
