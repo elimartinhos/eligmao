@@ -46,7 +46,6 @@
     let user = "";
     let level = 1;
 
-    // Função para transformar a senha em um código impossível de ler (SHA-256)
     async function hashPassword(string) {
         const utf8 = new TextEncoder().encode(string);
         const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
@@ -87,11 +86,8 @@
             const data = await callAPI('GET');
             const content = JSON.parse(atob(data.content));
             
-            // Se o usuário já existe
             if (content.players[user]) {
                 const userData = content.players[user];
-                
-                // Se for o login inicial, verifica a senha
                 if (isInitial) {
                     if (userData.pass !== providedPass) {
                         alert("Senha incorreta!");
@@ -102,13 +98,9 @@
                 }
                 level = userData.level;
             } 
-            // Se for usuário novo (Criação)
             else if (isInitial) {
                 level = 1;
-                content.players[user] = {
-                    level: 1,
-                    pass: providedPass
-                };
+                content.players[user] = { level: 1, pass: providedPass };
                 await callAPI('PUT', {
                     message: `Novo user: ${user}`,
                     content: btoa(JSON.stringify(content, null, 2)),
@@ -116,14 +108,21 @@
                 });
             }
 
-            // Atualiza UI
+            // LÓGICA DO LÍDER CORRIGIDA
+            let leader = { name: "---", lvl: 0 };
+            for (let p in content.players) {
+                if (content.players[p].level > leader.lvl) {
+                    leader = { name: p, lvl: content.players[p].level };
+                }
+            }
+
             document.getElementById('puzzle-id').innerText = `#${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
-            document.getElementById('top-player').innerHTML = `STATUS: <span>ONLINE</span>`;
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
             
             if (isInitial) {
                 localStorage.setItem('p_user', user);
-                localStorage.setItem('p_hash', providedPass); // Salva o hash para auto-login
+                localStorage.setItem('p_hash', providedPass);
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
@@ -145,7 +144,7 @@
                 content: btoa(JSON.stringify(content, null, 2)),
                 sha: data.sha
             });
-            document.getElementById('puzzle-id').innerText = `#${level}`;
+            syncData(); // Recarrega ranking e líder
             document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
         }
     });
