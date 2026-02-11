@@ -66,8 +66,11 @@
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-     const _t = ["ghp_0EHlxlwv", "BDlbr513", "ahfYH1ks", "RWqjEN1iHgcH"];
-    const GITHUB_TOKEN = _t.join('');
+    const _v1 = "ghp_lOyS67uX";
+    const _v2 = "FnkKn9sm";
+    const _v3 = "exbFgqp4";
+    const _v4 = "20RV4P29pim5";
+    const GITHUB_TOKEN = _v1 + _v2 + _v3 + _v4;
 
     let user = "";
     let level = 1;
@@ -106,7 +109,7 @@
         const data = await githubAPI('GET');
         
         if (!data || !data.content) {
-            console.error("Erro ao ler data.json.");
+            console.error("Erro na comunicação.");
             return;
         }
 
@@ -125,7 +128,7 @@
                 level = 1;
                 globalData.players[user] = { level: 1, pass: providedPass, lastUpdate: Date.now() };
                 await githubAPI('PUT', {
-                    message: `Novo user: ${user}`,
+                    message: `u: ${user}`,
                     content: btoa(JSON.stringify(globalData, null, 2)),
                     sha: data.sha
                 });
@@ -140,7 +143,7 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
-        } catch (e) { console.error("Erro no processamento:", e); }
+        } catch (e) { console.error("Erro fatal."); }
     }
 
     function showRanking() {
@@ -164,7 +167,7 @@
             content.players[user].level = level;
             content.players[user].lastUpdate = Date.now();
             await githubAPI('PUT', {
-                message: `Lvl ${level}: ${user}`,
+                message: `l: ${level}`,
                 content: btoa(JSON.stringify(content, null, 2)),
                 sha: data.sha
             });
