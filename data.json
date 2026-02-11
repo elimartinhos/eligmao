@@ -1,14 +1,3 @@
 {
-  "players": {
-    "Elimartinhos": {
-      "level": 1,
-      "pass": "894a8d014804accbd428e0ab7c61cf061ed82a694e8dd2c9e4fbbd71f351d583",
-      "lastUpdate": 1770849164930
-    },
-    "elimartinhos": {
-      "level": 3,
-      "pass": "894a8d014804accbd428e0ab7c61cf061ed82a694e8dd2c9e4fbbd71f351d583",
-      "lastUpdate": 1770850032511
-    }
-  }
+  "players": {}
 }
