@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FIM DO JOGO</title>
+    <style>
+        body { 
+            background: #000; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            color: #fff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+
+        .congrats-container {
+            text-align: center;
+            z-index: 10;
+            animation: bounce 2s infinite;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: linear-gradient(90deg, #0f0, #0ff, #f0f, #ff0, #0f0);
+            background-size: 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: flow 5s linear infinite;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        p {
+            font-size: 1.2rem;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        .final-badge {
+            width: 150px;
+            height: 150px;
+            margin: 20px auto;
+            border: 5px solid #0f0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5rem;
+            box-shadow: 0 0 30px #0f0;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes flow {
+            0% { background-position: 0%; }
+            100% { background-position: 400%; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px #0f0; }
+            50% { transform: scale(1.1); box-shadow: 0 0 50px #0f0; }
+            100% { transform: scale(1); box-shadow: 0 0 20px #0f0; }
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="confetti"></canvas>
+
+    <div class="congrats-container">
+        <div class="final-badge">👑</div>
+        <h1>VOCÊ CONSEGUIU!</h1>
+        <p>Você dominou o ELIGMAO e provou ser o melhor.</p>
+        <p style="color: #0f0; font-weight: bold;">TOTALMENTE ZERADO!</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('confetti');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particles = [];
+        const colors = ['#0f0', '#0ff', '#f0f', '#ff0', '#fff'];
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height - canvas.height;
+                this.size = Math.random() * 7 + 3;
+                this.speed = Math.random() * 5 + 2;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.angle = Math.random() * 6.28;
+            }
+            update() {
+                this.y += this.speed;
+                this.angle += 0.1;
+                if (this.y > canvas.height) {
+                    this.y = -20;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function init() {
+            for (let i = 0; i < 150; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        animate();
+
+        // Vibração final se estiver no mobile
+        if (navigator.vibrate) navigator.vibrate([100, 100, 100, 100, 500]);
+    </script>
+</body>
+</html>
