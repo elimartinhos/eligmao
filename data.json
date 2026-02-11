@@ -1,1 +1,5 @@
-{ "players": {} }
+{
+  "players": {
+    "elimartinhos": 1
+  }
+}
