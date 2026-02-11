@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puzzle 24</title>
+    <style>
+        body { background: #050505; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #fff; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
+        
+        #game-container { position: relative; width: 340px; background: #1a1a1a; border: 4px solid #333; border-radius: 25px; padding: 20px; box-shadow: 0 20px 50px #000; display: flex; flex-direction: column; align-items: center; }
+        
+        #header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .led-container { display: flex; gap: 12px; }
+        .led { width: 14px; height: 14px; background: #200; border-radius: 50%; border: 2px solid #400; }
+        .led.active { background: #ff0000; box-shadow: 0 0 15px #f00; border-color: #ffaaaa; }
+        #progress { color: #ff0000; font-size: 1.1rem; font-weight: bold; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+
+        #screen { width: 100%; height: 120px; background: #000; border: 3px solid #222; border-radius: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 30px #000; }
+        #target-zone { position: absolute; left: 50px; top: 0; width: 22px; height: 100%; background: rgba(255, 0, 0, 0.15); border-left: 2px solid rgba(255, 0, 0, 0.3); border-right: 2px solid rgba(255, 0, 0, 0.3); z-index: 1; }
+
+        .arrow { position: absolute; width: 44px; height: 44px; z-index: 2; }
+        .arrow svg { width: 100%; height: 100%; fill: #ff4444; }
+        .arrow.hit svg { fill: #0f0 !important; filter: drop-shadow(0 0 15px #0f0); }
+        .arrow.miss svg { fill: #f00 !important; filter: drop-shadow(0 0 15px #f00); }
+
+        #footer-area { width: 100%; display: flex; align-items: center; justify-content: center; position: relative; margin-top: 25px; }
+
+        #dpad { position: relative; width: 170px; height: 170px; background: #111; border-radius: 50%; box-shadow: inset 0 0 20px #000; }
+        .btn { position: absolute; background: #252525; border: 1px solid #333; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.05s; box-shadow: 0 4px 0 #000; z-index: 2; }
+        .btn svg { width: 24px; height: 24px; fill: #555; pointer-events: none; }
+        .btn:active { background: #333; transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+        .btn:active svg { fill: #fff; }
+
+        .up { width: 46px; height: 55px; left: 62px; top: 10px; border-radius: 8px 8px 4px 4px; }
+        .down { width: 46px; height: 55px; left: 62px; bottom: 10px; border-radius: 4px 4px 8px 8px; }
+        .left { width: 55px; height: 46px; left: 10px; top: 62px; border-radius: 8px 4px 4px 8px; }
+        .right { width: 55px; height: 46px; right: 10px; top: 62px; border-radius: 4px 8px 8px 4px; }
+
+        /* Stickman Vermelho Brilhante */
+        #stickman { width: 60px; height: 80px; position: absolute; right: 0; bottom: 10px; }
+        #stickman svg { width: 100%; height: 100%; stroke: #ff0000; stroke-width: 3; fill: none; filter: drop-shadow(0 0 8px #ff0000); }
+
+        .completed #game-container { filter: grayscale(1) opacity(0.3); pointer-events: none; }
+        #check-mark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 200px; color: #0f0; display: none; z-index: 200; pointer-events: none; text-shadow: 0 0 50px #0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div id="game-container">
+    <div id="header">
+        <div class="led-container">
+            <div id="led-1" class="led"></div>
+            <div id="led-2" class="led"></div>
+        </div>
+        <div id="progress">SCORE: 000 / 100</div>
+    </div>
+
+    <div id="screen">
+        <div id="target-zone"></div>
+        <div id="arrows-layer"></div>
+    </div>
+
+    <div id="footer-area">
+        <div id="dpad">
+            <div class="btn up" onmousedown="handleInput('ArrowUp')" ontouchstart="handleInput('ArrowUp', event)">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+            </div>
+            <div class="btn left" onmousedown="handleInput('ArrowLeft')" ontouchstart="handleInput('ArrowLeft', event)">
+                <svg viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5z"/></svg>
+            </div>
+            <div class="btn right" onmousedown="handleInput('ArrowRight')" ontouchstart="handleInput('ArrowRight', event)">
+                <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5z"/></svg>
+            </div>
+            <div class="btn down" onmousedown="handleInput('ArrowDown')" ontouchstart="handleInput('ArrowDown', event)">
+                <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+        </div>
+
+        <div id="stickman">
+            <svg viewBox="0 0 60 100">
+                <circle cx="30" cy="20" r="8" />
+                <line x1="30" y1="28" x2="30" y2="60" />
+                <line x1="30" y1="60" x2="15" y2="90" />
+                <line x1="30" y1="60" x2="45" y2="90" />
+                <line id="arm-l" x1="30" y1="40" x2="10" y2="55" />
+                <line id="arm-r" x1="30" y1="40" x2="50" y2="55" />
+            </svg>
+        </div>
+    </div>
+</div>
+
+<script>
+    const screenLayer = document.getElementById('arrows-layer');
+    const leds = [document.getElementById('led-1'), document.getElementById('led-2')];
+    const progressEl = document.getElementById('progress');
+    const armL = document.getElementById('arm-l');
+    const armR = document.getElementById('arm-r');
+    
+    let arrows = [];
+    let errors = 0;
+    let hits = 0;
+    let processedArrows = 0;
+    let totalCreated = 0;
+    const TOTAL_ARROWS = 100;
+    const ARROW_WIDTH = 44;
+    
+    // Velocidade mantida proporcional à lógica do puzzle original
+    const CONSTANT_MULTIPLIER = 3.014;
+    const baseSpeed = 1.3;
+
+    function getSvg(type) {
+        let path = '';
+        if(type === 'ArrowUp') path = 'M12 2L22 12H16V22H8V12H2L12 2Z';
+        if(type === 'ArrowDown') path = 'M12 22L2 12H8V2H16V12H22L12 22Z';
+        if(type === 'ArrowLeft') path = 'M2 12L12 22V16H22V8H12V2L2 12Z';
+        if(type === 'ArrowRight') path = 'M22 12L12 2V8H2V16H12V22L22 12Z';
+        return `<svg viewBox="0 0 24 24"><path d="${path}"/></svg>`;
+    }
+
+    let gameActive = true;
+    let lastSpawn = 0;
+
+    function initGame() {
+        gameActive = true; errors = 0; hits = 0; totalCreated = 0; processedArrows = 0;
+        arrows.forEach(a => a.el.remove());
+        arrows = [];
+        leds.forEach(l => l.classList.remove('active'));
+        document.body.classList.remove('completed');
+        document.getElementById('check-mark').style.display = 'none';
+        updateUI();
+        lastSpawn = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function spawnArrow() {
+        if (totalCreated >= TOTAL_ARROWS) return;
+        const type = ['ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowRight'][Math.floor(Math.random() * 4)];
+        const el = document.createElement('div');
+        el.className = 'arrow';
+        el.innerHTML = getSvg(type);
+        el.style.left = '350px';
+        el.style.top = '38px';
+        screenLayer.appendChild(el);
+        arrows.push({ el, type, x: 350, status: 'pending' });
+        totalCreated++;
+    }
+
+    function gameLoop(time) {
+        if (!gameActive) return;
+
+        const spawnInterval = 1400 / CONSTANT_MULTIPLIER; 
+
+        if (totalCreated < TOTAL_ARROWS && (time - lastSpawn > spawnInterval)) {
+            spawnArrow();
+            lastSpawn = time;
+        }
+
+        const currentSpeed = baseSpeed * CONSTANT_MULTIPLIER;
+
+        for (let i = arrows.length - 1; i >= 0; i--) {
+            let a = arrows[i];
+            a.x -= currentSpeed;
+            a.el.style.left = a.x + 'px';
+
+            if (a.x < (50 - ARROW_WIDTH) && a.status === 'pending') {
+                a.status = 'missed';
+                a.el.classList.add('miss');
+                processedArrows++;
+                triggerError();
+            }
+            if (a.x < -60) {
+                a.el.remove();
+                arrows.splice(i, 1);
+            }
+        }
+
+        if (processedArrows === TOTAL_ARROWS && errors < 2) {
+            win();
+        } else if (gameActive) {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function handleInput(type, e) {
+        if (e) e.preventDefault();
+        if (!gameActive) return;
+        updateStickman(type);
+        let targetFound = false;
+        for (let a of arrows) {
+            const arrowRight = a.x + ARROW_WIDTH;
+            const zoneLeft = 50;
+            const zoneRight = 72;
+            if (a.status === 'pending' && arrowRight >= zoneLeft && a.x <= zoneRight) {
+                if (a.type === type) {
+                    a.status = 'hit';
+                    a.el.classList.add('hit');
+                    hits++; processedArrows++;
+                    if (navigator.vibrate) navigator.vibrate(20); 
+                    updateUI();
+                } else {
+                    a.status = 'miss';
+                    a.el.classList.add('miss');
+                    processedArrows++;
+                    triggerError();
+                }
+                targetFound = true;
+                break;
+            }
+        }
+        if (!targetFound) triggerError();
+    }
+
+    function updateStickman(type) {
+        if(type === 'ArrowUp') {
+            armL.setAttribute('x2', '10'); armL.setAttribute('y2', '20');
+            armR.setAttribute('x2', '50'); armR.setAttribute('y2', '20');
+        } else if(type === 'ArrowDown') {
+            armL.setAttribute('x2', '15'); armL.setAttribute('y2', '55');
+            armR.setAttribute('x2', '45'); armR.setAttribute('y2', '55');
+        } else if(type === 'ArrowRight') {
+            armL.setAttribute('x2', '50'); armL.setAttribute('y2', '25');
+            armR.setAttribute('x2', '55'); armR.setAttribute('y2', '50');
+        } else if(type === 'ArrowLeft') {
+            armL.setAttribute('x2', '5');  armL.setAttribute('y2', '50');
+            armR.setAttribute('x2', '10'); armR.setAttribute('y2', '25');
+        }
+        setTimeout(() => {
+            armL.setAttribute('x2', '10'); armL.setAttribute('y2', '55');
+            armR.setAttribute('x2', '50'); armR.setAttribute('y2', '55');
+        }, 150);
+    }
+
+    function triggerError() {
+        errors++;
+        if (navigator.vibrate) navigator.vibrate([80, 50, 80]); 
+        if (errors <= 2) leds[errors - 1].classList.add('active');
+        if (errors >= 2) {
+            gameActive = false;
+            setTimeout(initGame, 1000);
+        }
+    }
+
+    function updateUI() {
+        const h = hits < 10 ? '00' + hits : (hits < 100 ? '0' + hits : hits);
+        progressEl.innerText = `SCORE: ${h} / ${TOTAL_ARROWS}`;
+    }
+
+    function win() {
+        gameActive = false;
+        document.body.classList.add('completed');
+        document.getElementById('check-mark').style.display = 'block';
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 300]);
+        setTimeout(() => { window.parent.postMessage('nextPuzzle', '*'); }, 2000);
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            handleInput(e.key);
+        }
+    });
+
+    initGame();
+</script>
+</body>
+</html>
