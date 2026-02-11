@@ -3,87 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ELIGMAO - Online</title>
     <style>
-        body { 
-            background: black; 
-            margin: 0; 
-            height: 100vh; 
+        body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
+        
+        #game-header { 
+            width: 100%; 
+            padding: 15px 25px; 
             display: flex; 
-            justify-content: center; 
+            justify-content: space-between; 
             align-items: center; 
-            overflow: hidden; 
+            box-sizing: border-box; 
+            position: fixed; 
+            top: 0; 
+            z-index: 1000; 
         }
         
-        /* Container com a nova escala de 85% solicitada */
-        #scale-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transform: scale(0.85);
-            transform-origin: center center;
-        }
+        #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
+        
+        #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; }
+        #top-player span { color: #0f0; font-weight: bold; }
 
-        #wrapper {
-            width: 380px;
-            height: 620px; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+        #user-info { color: #0f0; font-size: 16px; font-weight: bold; width: 150px; text-align: right; }
 
-        #puzzle-frame { 
-            width: 100%; 
-            height: 100%; 
-            border: none;
-            background: #1a1a1a;
-            border-radius: 20px;
-        }
+        #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
+        input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
 
-        #admin-skip { 
-            position: fixed; 
-            top: 10px; 
-            right: 10px; 
-            padding: 10px 20px;
-            background: red; 
-            border: 2px solid white;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer; 
-            z-index: 10000;
-            border-radius: 8px;
-            font-family: sans-serif;
-        }
+        #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
+        #wrapper { width: 380px; height: 620px; }
+        #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
+        
+        #admin-panel { position: fixed; bottom: 20px; left: 20px; background: red; padding: 10px; border-radius: 5px; display: none; z-index: 10000; }
     </style>
 </head>
 <body>
 
-<div id="admin-skip" onclick="skipPuzzle()">SKIP</div>
+<div id="login-screen">
+    <div class="login-box">
+        <h2 style="margin-top:0">LOGIN</h2>
+        <input type="text" id="username-input" placeholder="Nome (máx 12 chars)" maxlength="12">
+        <br>
+        <button onclick="login()">ENTRAR</button>
+    </div>
+</div>
+
+<div id="game-header">
+    <div id="puzzle-id">#1</div>
+    <div id="top-player">CARREGANDO...</div>
+    <div id="user-info">---</div>
+</div>
+
+<div id="admin-panel">
+    ADMIN: <button onclick="skip()" style="cursor:pointer">SKIP</button>
+</div>
 
 <div id="scale-container">
     <div id="wrapper">
-        <iframe id="puzzle-frame" src="puzzle1.html"></iframe>
+        <iframe id="puzzle-frame" src="about:blank"></iframe>
     </div>
 </div>
 
 <script>
-    let currentPuzzle = 1;
+    // Configurações do Repositório
+    const REPO_OWNER = "elimartinhos";
+    const REPO_NAME = "eligmao";
+    const FILE_PATH = "data.json";
 
-    function skipPuzzle() {
-        nextPuzzle();
+    // O token agora é lido com segurança das variáveis do Vercel
+    const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN;
+
+    let user = "";
+    let level = 1;
+
+    async function login() {
+        const input = document.getElementById('username-input').value.trim();
+        if (!input) return;
+        
+        user = input;
+        localStorage.setItem('p_user', user);
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('user-info').innerText = user.toUpperCase();
+        
+        if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
+        
+        await syncData();
     }
 
-    function nextPuzzle() {
-        currentPuzzle++;
-        const frame = document.getElementById('puzzle-frame');
-        frame.src = `puzzle${currentPuzzle}.html`;
+    async function syncData() {
+        try {
+            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Cache-Control": "no-cache" }
+            });
+            const data = await res.json();
+            const content = JSON.parse(atob(data.content));
+            
+            level = content.players[user] || 1;
+
+            let leader = { name: "---", lvl: 0 };
+            for (let p in content.players) {
+                if (content.players[p] > leader.lvl) {
+                    leader = { name: p, lvl: content.players[p] };
+                }
+            }
+
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
+            document.getElementById('puzzle-id').innerText = `#${level}`;
+            document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
+            
+        } catch (e) { console.error("Erro na sincronização:", e); }
     }
 
-    window.addEventListener('message', (event) => {
-        if (event.data === 'nextPuzzle') {
-            nextPuzzle();
+    async function updateGithub() {
+        try {
+            const resGet = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Cache-Control": "no-cache" }
+            });
+            const dataGet = await resGet.json();
+            let content = JSON.parse(atob(dataGet.content));
+            
+            content.players[user] = level;
+
+            await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                method: "PUT",
+                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message: `Progresso: ${user} - Nível ${level}`,
+                    content: btoa(JSON.stringify(content, null, 2)),
+                    sha: dataGet.sha
+                })
+            });
+            
+            syncData();
+        } catch (e) { console.error("Erro ao salvar:", e); }
+    }
+
+    window.addEventListener('message', (e) => {
+        if (e.data === 'nextPuzzle') {
+            level++;
+            updateGithub();
         }
     });
+
+    function skip() {
+        level++;
+        updateGithub();
+    }
+
+    const saved = localStorage.getItem('p_user');
+    if(saved) {
+        document.getElementById('username-input').value = saved;
+        login();
+    }
 </script>
 </body>
 </html>
