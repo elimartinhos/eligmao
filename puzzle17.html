@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puzzle 17</title>
+    <style>
+        body { background: #050505; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #0f0; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
+        
+        /* Formato retangular vertical (estilo celular) com altura total reduzida */
+        #game-container { position: relative; width: 320px; height: 480px; background: #151515; border: 3px solid #222; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; box-shadow: 0 0 40px #000; transition: 0.5s; box-sizing: border-box; }
+        
+        #screen { width: 100%; height: 180px; background: #000; border: 2px solid #0a0; border-radius: 10px; position: relative; overflow: hidden; box-shadow: inset 0 0 15px #020; }
+        canvas { width: 100%; height: 100%; }
+
+        /* Controles horizontais compactos */
+        .controls { width: 100%; display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .knob-wrapper { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        
+        /* Tamanho dos potenciômetros mantido */
+        .knob { width: 75px; height: 75px; background: radial-gradient(circle, #333, #111); border: 2px solid #444; border-radius: 50%; position: relative; cursor: grab; box-shadow: 0 5px 10px #000; }
+        .knob::after { content: ''; position: absolute; top: 8px; left: 50%; width: 4px; height: 18px; background: #0f0; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 8px #0f0; }
+
+        label { font-size: 0.55rem; font-weight: bold; color: #555; letter-spacing: 1px; }
+
+        /* Finalização */
+        .completed #game-container { filter: grayscale(1) opacity(0.3); pointer-events: none; }
+        #check-mark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 180px; color: #0f0; display: none; z-index: 200; pointer-events: none; text-shadow: 0 0 50px rgba(0,255,0,0.8); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div id="game-container">
+    <div id="screen">
+        <canvas id="signal-canvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="knob-wrapper">
+            <label>AMP</label>
+            <div id="knob-amp" class="knob" data-key="amp"></div>
+        </div>
+        <div class="knob-wrapper">
+            <label>FREQ</label>
+            <div id="knob-freq" class="knob" data-key="freq"></div>
+        </div>
+        <div class="knob-wrapper">
+            <label>FASE</label>
+            <div id="knob-phase" class="knob" data-key="phase"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('signal-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    function resize() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const target = { amp: 50, freq: 0.07, phase: 1.5 }; 
+    let current = { amp: 10, freq: 0.02, phase: 0 };
+    const vibraPatterns = { amp: 8, freq: [4, 4], phase: 15 };
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const midY = canvas.height / 2;
+        
+        // Guia
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.15)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let x = 0; x < canvas.width; x++) {
+            const y = midY + target.amp * Math.sin(x * target.freq + target.phase);
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Ativa
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 12; ctx.shadowColor = '#0f0';
+        ctx.beginPath();
+        for (let x = 0; x < canvas.width; x++) {
+            const y = midY + current.amp * Math.sin(x * current.freq + current.phase);
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(draw);
+    }
+
+    function setupKnob(id) {
+        const el = document.getElementById(id);
+        const key = el.dataset.key;
+        let isDragging = false;
+        let lastAngle = 0;
+
+        const getAngle = (e) => {
+            const rect = el.getBoundingClientRect();
+            const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.atan2(clientY - center.y, clientX - center.x);
+        };
+
+        const onMove = (e) => {
+            if (!isDragging) return;
+            const angle = getAngle(e);
+            let diff = angle - lastAngle;
+            if (diff > Math.PI) diff -= Math.PI * 2;
+            if (diff < -Math.PI) diff += Math.PI * 2;
+
+            if (key === 'amp') current.amp = Math.max(5, Math.min(70, current.amp + diff * 10));
+            if (key === 'freq') current.freq = Math.max(0.01, Math.min(0.18, current.freq + diff * 0.02));
+            if (key === 'phase') current.phase = (current.phase + diff * 2.5) % (Math.PI * 2);
+
+            lastAngle = angle;
+            const rot = (key === 'amp' ? current.amp * 5 : key === 'freq' ? current.freq * 2000 : current.phase * 57.3);
+            el.style.transform = `rotate(${rot}deg)`;
+
+            if (navigator.vibrate) navigator.vibrate(vibraPatterns[key]);
+        };
+
+        const onEnd = () => {
+            if (isDragging) {
+                isDragging = false;
+                checkWin();
+            }
+        };
+
+        el.addEventListener('mousedown', (e) => { isDragging = true; lastAngle = getAngle(e); });
+        el.addEventListener('touchstart', (e) => { isDragging = true; lastAngle = getAngle(e); e.preventDefault(); }, {passive: false});
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchend', onEnd);
+    }
+
+    function checkWin() {
+        const dAmp = Math.abs(current.amp - target.amp);
+        const dFreq = Math.abs(current.freq - target.freq);
+        const dPhase = Math.abs(current.phase - target.phase);
+
+        if (dAmp < 3 && dFreq < 0.005 && dPhase < 0.2) {
+            if (document.body.classList.contains('completed')) return;
+            document.body.classList.add('completed');
+            document.getElementById('check-mark').style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+            setTimeout(() => { window.parent.postMessage('nextPuzzle', '*'); }, 2000);
+        }
+    }
+
+    ['knob-amp', 'knob-freq', 'knob-phase'].forEach(setupKnob);
+    draw();
+</script>
+</body>
+</html>
