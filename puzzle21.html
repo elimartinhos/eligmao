@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puzzle 21</title>
+    <style>
+        body { background: #050505; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: #fff; font-family: 'Courier New', monospace; user-select: none; touch-action: none; }
+
+        #board { 
+            position: relative; 
+            width: 90px; 
+            height: 420px; 
+            background: #1a1a1a; 
+            border: 4px solid #333; 
+            border-radius: 15px 25px 10px 30px; 
+            padding: 15px 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 40px #000;
+        }
+
+        .slot {
+            width: 54px;
+            height: 54px;
+            background: #000;
+            border: 2px solid #222;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: inset 0 0 10px #000;
+        }
+
+        .piece {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: absolute;
+            z-index: 2;
+        }
+
+        /* Cores e Brilho */
+        .type-down { background: #111; border: 3px solid #0088ff; box-shadow: 0 0 15px rgba(0, 136, 255, 0.5); }
+        .type-up { background: #111; border: 3px solid #ff8800; box-shadow: 0 0 15px rgba(255, 136, 0, 0.5); }
+
+        /* Setas Grandes */
+        .piece svg { width: 38px; height: 38px; pointer-events: none; }
+        .type-down svg { fill: #0088ff; }
+        .type-up svg { fill: #ff8800; }
+
+        #controls { margin-top: 25px; }
+
+        #reset-btn {
+            width: 50px;
+            height: 50px;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+        }
+        #reset-btn:active { transform: rotate(-180deg) scale(0.9); }
+        #reset-btn svg { width: 26px; height: 26px; fill: #888; }
+
+        .completed #board { filter: grayscale(1) brightness(0.4); pointer-events: none; }
+        #check-mark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 160px; color: #0f0; display: none; z-index: 100; pointer-events: none; text-shadow: 0 0 40px #0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="check-mark">✓</div>
+
+<div id="board">
+    <div class="slot" id="slot-0"></div>
+    <div class="slot" id="slot-1"></div>
+    <div class="slot" id="slot-2"></div>
+    <div class="slot" id="slot-3"></div>
+    <div class="slot" id="slot-4"></div>
+    <div class="slot" id="slot-5"></div>
+    <div class="slot" id="slot-6"></div>
+</div>
+
+<div id="controls">
+    <div id="reset-btn" onclick="initGame()">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    </div>
+</div>
+
+<script>
+    let state = [1, 1, 1, 0, 2, 2, 2];
+    let gameActive = true;
+
+    function initGame() {
+        state = [1, 1, 1, 0, 2, 2, 2];
+        gameActive = true;
+        document.body.classList.remove('completed');
+        document.getElementById('check-mark').style.display = 'none';
+        render();
+    }
+
+    function render() {
+        for (let i = 0; i < 7; i++) {
+            const slot = document.getElementById(`slot-${i}`);
+            slot.innerHTML = '';
+            if (state[i] !== 0) {
+                const piece = document.createElement('div');
+                piece.className = `piece type-${state[i] === 1 ? 'down' : 'up'}`;
+                // Setas voltaram: 1 (Down), 2 (Up)
+                piece.innerHTML = state[i] === 1 
+                    ? `<svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>` 
+                    : `<svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>`;
+                piece.onclick = () => movePiece(i);
+                slot.appendChild(piece);
+            }
+        }
+    }
+
+    function movePiece(index) {
+        if (!gameActive) return;
+        const type = state[index];
+        const emptyIndex = state.indexOf(0);
+        const diff = emptyIndex - index;
+        let canMove = false;
+
+        // Regra Unidirecional: Down (1) só aumenta index, Up (2) só diminui
+        if (type === 1 && diff > 0 && diff <= 2) canMove = true;
+        else if (type === 2 && diff < 0 && diff >= -2) canMove = true;
+
+        if (canMove) {
+            state[emptyIndex] = type;
+            state[index] = 0;
+            if (navigator.vibrate) navigator.vibrate(20);
+            render();
+            checkWin();
+        } else {
+            if (navigator.vibrate) navigator.vibrate([40, 40]);
+        }
+    }
+
+    function checkWin() {
+        const winState = [2, 2, 2, 0, 1, 1, 1];
+        if (state.every((val, i) => val === winState[i])) {
+            gameActive = false;
+            document.body.classList.add('completed');
+            document.getElementById('check-mark').style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+            setTimeout(() => { window.parent.postMessage('nextPuzzle', '*'); }, 2000);
+        }
+    }
+
+    initGame();
+</script>
+</body>
+</html>
