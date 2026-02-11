@@ -29,25 +29,11 @@
         #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); }
         
         #status { font-family: monospace; margin-top: 10px; color: #aaa; }
-
-        /* Botão discreto para pular */
-        #skip-btn { 
-            position: fixed; 
-            bottom: 0; 
-            right: 0; 
-            width: 15px; 
-            height: 15px; 
-            background: transparent; 
-            cursor: default; 
-            z-index: 999; 
-        }
     </style>
 </head>
 <body>
 
 <div id="check-mark">✓</div>
-
-<div id="skip-btn" onclick="success()"></div>
 
 <div class="case" id="main-case">
     <div class="hint-bar">
@@ -133,7 +119,10 @@
 
         insect.onclick = (e) => {
             e.stopPropagation();
+            
+            // TRAVA PARA EVITAR CLIQUE DUPLO
             insect.style.pointerEvents = 'none'; 
+            
             clearTimeout(currentTimeout);
             if (type === '🪰') {
                 score++;
