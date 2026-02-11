@@ -39,7 +39,7 @@
     <div id="user-info">---</div>
 </div>
 
-<div id="admin-panel">ADMIN: <button onclick="skip()">SKIP</button></div>
+<div id="admin-panel">ADMIN: <button onclick="skip()" style="cursor:pointer">SKIP</button></div>
 
 <div id="scale-container">
     <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
@@ -50,9 +50,9 @@
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    // MODO VERCEL: O Vercel substitui strings durante o build. 
-    // Certifique-se de que a Secret no Vercel chama-se exatamente: NEXT_PUBLIC_GITHUB_TOKEN
-    const GITHUB_TOKEN = "%NEXT_PUBLIC_GITHUB_TOKEN%"; 
+    // O Vercel NÃO injeta variáveis no navegador via process.env em HTML puro.
+    // Esta técnica é o padrão para "queimar" a variável no build do Vercel.
+    const GITHUB_TOKEN = "{{NEXT_PUBLIC_GITHUB_TOKEN}}"; 
 
     let user = "";
     let level = 1;
@@ -73,43 +73,44 @@
         await syncData(true);
     }
 
-    async function fetchFromGH(method = "GET", body = null, sha = null) {
-        // Se o token não foi injetado pelo Vercel, ele vai falhar aqui.
-        if (GITHUB_TOKEN.includes("NEXT_PUBLIC")) {
-             throw new Error("Token não injetado pelo Vercel. Verifique as variáveis de ambiente.");
-        }
+    async function fetchGitHub(method = "GET", body = null, sha = null) {
+        // Se a variável não foi substituída pelo Vercel, o código avisará no console
+        const token = GITHUB_TOKEN.startsWith("{{") ? "" : GITHUB_TOKEN;
 
         const headers = {
-            "Authorization": `token ${GITHUB_TOKEN}`,
+            "Authorization": `token ${token}`,
             "Content-Type": "application/json"
         };
+
         const options = { method, headers };
-        if (body) options.body = JSON.stringify({
-            message: `Update ${user}`,
-            content: btoa(JSON.stringify(body, null, 2)),
-            sha: sha
-        });
+        if (body) {
+            options.body = JSON.stringify({
+                message: `Update ${user}`,
+                content: btoa(JSON.stringify(body, null, 2)),
+                sha: sha
+            });
+        }
 
         const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, options);
-        if (!res.ok) throw new Error("Erro na API do GitHub");
+        if (!res.ok) throw new Error("GitHub API Error");
         return await res.json();
     }
 
     async function syncData(isInitial = false) {
         try {
-            const data = await fetchFromGH("GET");
+            const data = await fetchGitHub("GET");
             const content = JSON.parse(atob(data.content));
             
-            // CRIAÇÃO AUTOMÁTICA: Se não existe, inicia no 1
+            // Se o usuário não existe, tratamos como novo e salvamos imediatamente
             if (!content.players[user]) {
                 content.players[user] = 1;
                 level = 1;
-                await fetchFromGH("PUT", content, data.sha);
+                await fetchGitHub("PUT", content, data.sha);
             } else {
                 level = content.players[user];
             }
 
-            // Ranking
+            // Atualiza ranking
             let leader = { name: "---", lvl: 0 };
             for (let p in content.players) {
                 if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
@@ -125,7 +126,7 @@
             }
         } catch (e) {
             console.error(e);
-            alert("ERRO: O Vercel não está passando o Token. Verifique se a variável NEXT_PUBLIC_GITHUB_TOKEN foi criada corretamente nas configurações do Vercel.");
+            alert("ERRO DE TOKEN: O Vercel não injetou a variável. Verifique se o nome é NEXT_PUBLIC_GITHUB_TOKEN.");
             document.getElementById('login-btn').disabled = false;
             document.getElementById('login-btn').innerText = "ACESSAR";
         }
@@ -139,10 +140,10 @@
         if (e.data === 'nextPuzzle') {
             level++;
             try {
-                const data = await fetchFromGH("GET");
+                const data = await fetchGitHub("GET");
                 const content = JSON.parse(atob(data.content));
                 content.players[user] = level;
-                await fetchFromGH("PUT", content, data.sha);
+                await fetchGitHub("PUT", content, data.sha);
                 syncData();
                 loadPuzzle();
             } catch (err) { console.error(err); }
