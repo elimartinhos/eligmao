@@ -6,7 +6,6 @@
     <style>
         body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
         
-        /* Container de escala para reduzir 20% (0.8) */
         #scale-container {
             transform: scale(1.0);
             transform-origin: center center;
@@ -16,7 +15,10 @@
         }
 
         .phone-case { width: 380px; height: 620px; background: #1a1a1a; border: 4px solid #333; border-radius: 40px; position: relative; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
-        .post-it { position: absolute; right: -30px; top: 40px; background: #ffeb3b; color: #000; padding: 8px 15px; transform: rotate(10deg); font-weight: bold; box-shadow: 2px 5px 10px rgba(0,0,0,0.3); z-index: 10; }
+        
+        /* Post-it ajustado para dentro (right: 10px) */
+        .post-it { position: absolute; right: 10px; top: 40px; background: #ffeb3b; color: #000; padding: 8px 15px; transform: rotate(10deg); font-weight: bold; box-shadow: 2px 5px 10px rgba(0,0,0,0.3); z-index: 10; }
+        
         .screen { width: 300px; height: 240px; background: #8fb190; border: 10px solid #111; border-radius: 5px; color: #111; padding: 12px; font-family: 'Courier New', monospace; font-size: 1.1rem; font-weight: bold; overflow-y: auto; white-space: pre-wrap; box-shadow: inset 0 0 15px rgba(0,0,0,0.6); line-height: 1.2; }
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
         .key { width: 75px; height: 50px; background: #333; border: 2px solid #444; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #111; transition: 0.1s; }
@@ -28,14 +30,11 @@
     </style>
 </head>
 <body>
-
 <div id="check-mark">✓</div>
-
 <div id="scale-container">
     <div class="phone-case">
         <div class="post-it">Maria</div>
         <div class="screen" id="scr">Em espera...</div>
-
         <div class="keypad">
             <div class="key" onclick="press('1')">1</div>
             <div class="key" onclick="press('2')">2</div>
@@ -55,95 +54,16 @@
         </div>
     </div>
 </div>
-
 <script>
-    let typed = "";
-    let state = "IDLE";
-    const scr = document.getElementById('scr');
-
-    const allContacts = {
-        "81223344": "Ana Maria, a Braba", "85566778": "BEZERRO", "89900112": "Babu Santana do BBB",
-        "71122334": "Dani, aquela", "75566778": "Eli Martinhos", "79900112": "Fred Nicácio (Empresário)", "72233445": "Guto (Tio da Maria)", "76677889": "Hugo Defante", "70011223": "Igor Seco", "74455667": "Juca",
-        "61122334": "Seu Geraldo da Kombi", "65566778": "Melina do Mel", "69900112": "Número Secreto da CIA", "62233445": "Otto", "66677889": "SPAM",
-        "51100001": "Rosa", "55500002": "Sara (Irmã da Maria)", "59900003": "Vera", "52200004": "Yuri", "56600005": "Zeca", 
-        "50000006": "Alan", "54400007": "Beatriz (NÃO ATENDER)", "58800008": "Cris (Prima da Maria)", "53300009": "Davi", "57700010": "Eduardo Paes (Prefeito)", 
-        "51100011": "Francisco Cuoco", "55500012": "HJKADFFHAJSDDFASJF", "59900013": "Heitor", "52200014": "Iara do Trabalho", "56600015": "Jaqueline (Residencial)", 
-        "50000016": "Kelly Key", "54400017": "Luan Santana (Celular Pessoal)", "33441122": "João Residencial (Marido da Maria)", "99887766": "João Celular (Marido da Maria)", "53300019": "Nuno", "57700020": "Olga (Mãe da Maria)", 
-        "51100021": "Paulo", "55500022": "Quico do Chaves", "59900023": "Raul"
-    };
-
-    const menuContent = {
-        "1": "PERDIDAS:\nAna Maria, a Braba: 81223344\nBEZERRO: 85566778\nBabu Santana do BBB: 89900112\nMarcelo Nhock: 744544467",
-        "2": "EFETUADAS:\nDani, aquela: 71122334\nEli Martinhos: 75566778\nFred Nicácio (Empresário): 79900112\nGuto (Tio da Maria): 72233445\nHugo Defante: 76677889\nIgor Seco: 70011223\nJuca: 74455667",
-        "3": "RECEBIDAS:\nSeu Geraldo da Kombi: 61122334\nMelina do Mel: 65566778\nNúmero Secreto da CIA: 69900112\nOtto: 62233445\nSPAM: 66677889",
-        "4": "CONTATOS:\nRosa: 51100001\nSara (Irmã da Maria): 55500002\nVera: 59900003\nYuri: 52200004\nZeca: 56600005\nAlan: 50000006\nBeatriz (NÃO ATENDER): 54400007\nCris (Prima da Maria): 58800008\nDavi: 53300009\nEduardo Paes (Prefeito): 57700010\nFrancisco Cuoco: 51100011\nHJKADFFHAJSDDFASJF: 55500012\nHeitor: 59900013\nIara do Trabalho: 52200014\nJaqueline (Residencial): 56600015\nKelly Key: 50000016\nLuan Santana (Celular Pessoal): 54400017\nJoão Residencial (Marido da Maria): 33441122\nJoão Celular (Marido da Maria): 99887766\nNuno: 53300019\nOlga (Mãe da Maria): 57700020\nPaulo: 51100021\nQuico do Chaves: 55500022\nRaul: 59900023"
-    };
-
+    let typed = ""; let state = "IDLE"; const scr = document.getElementById('scr');
+    const allContacts = { "81223344": "Ana Maria, a Braba", "85566778": "BEZERRO", "89900112": "Babu Santana do BBB", "71122334": "Dani, aquela", "75566778": "Eli Martinhos", "79900112": "Fred Nicácio (Empresário)", "72233445": "Guto (Tio da Maria)", "76677889": "Hugo Defante", "70011223": "Igor Seco", "74455667": "Juca", "61122334": "Seu Geraldo da Kombi", "65566778": "Melina do Mel", "69900112": "Número Secreto da CIA", "62233445": "Otto", "66677889": "SPAM", "51100001": "Rosa", "55500002": "Sara (Irmã da Maria)", "59900003": "Vera", "52200004": "Yuri", "56600005": "Zeca", "50000006": "Alan", "54400007": "Beatriz (NÃO ATENDER)", "58800008": "Cris (Prima da Maria)", "53300009": "Davi", "57700010": "Eduardo Paes (Prefeito)", "51100011": "Francisco Cuoco", "55500012": "HJKADFFHAJSDDFASJF", "59900013": "Heitor", "52200014": "Iara do Trabalho", "56600015": "Jaqueline (Residencial)", "50000016": "Kelly Key", "54400017": "Luan Santana (Celular Pessoal)", "33441122": "João Residencial (Marido da Maria)", "99887766": "João Celular (Marido da Maria)", "53300019": "Nuno", "57700020": "Olga (Mãe da Maria)", "51100021": "Paulo", "55500022": "Quico do Chaves", "59900023": "Raul" };
+    const menuContent = { "1": "PERDIDAS:\nAna Maria, a Braba: 81223344\nBEZERRO: 85566778\nBabu Santana do BBB: 89900112\nMarcelo Nhock: 744544467", "2": "EFETUADAS:\nDani, aquela: 71122334\nEli Martinhos: 75566778\nFred Nicácio (Empresário): 79900112\nGuto (Tio da Maria): 72233445\nHugo Defante: 76677889\nIgor Seco: 70011223\nJuca: 74455667", "3": "RECEBIDAS:\nSeu Geraldo da Kombi: 61122334\nMelina do Mel: 65566778\nNúmero Secreto da CIA: 69900112\nOtto: 62233445\nSPAM: 66677889", "4": "CONTATOS:\nRosa: 51100001\nSara (Irmã da Maria): 55500002\nVera: 59900003\nYuri: 52200004\nZeca: 56600005\nAlan: 50000006\nBeatriz (NÃO ATENDER): 54400007\nCris (Prima da Maria): 58800008\nDavi: 53300009\nEduardo Paes (Prefeito): 57700010\nFrancisco Cuoco: 51100011\nHJKADFFHAJSDDFASJF: 55500012\nHeitor: 59900013\nIara do Trabalho: 52200014\nJaqueline (Residencial): 56600015\nKelly Key: 50000016\nLuan Santana (Celular Pessoal): 54400017\nJoão Residencial (Marido da Maria): 33441122\nJoão Celular (Marido da Maria): 99887766\nNuno: 53300019\nOlga (Mãe da Maria): 57700020\nPaulo: 51100021\nQuico do Chaves: 55500022\nRaul: 59900023" };
     function vib(t) { if (navigator.vibrate) navigator.vibrate(t); }
-
-    function home() {
-        vib(20); state = "IDLE"; typed = ""; scr.innerText = "Em espera..."; scr.style.fontSize = "1.1rem";
-    }
-
-    function menu() {
-        vib(40); state = "MENU"; scr.innerText = "1. Perdidas\n2. Efetuadas\n3. Recebidas\n4. Contatos"; scr.style.fontSize = "1.1rem";
-    }
-
-    function press(n) {
-        vib(20);
-        if (state === "MENU") {
-            if (menuContent[n]) {
-                state = "SUBMENU";
-                scr.innerText = menuContent[n];
-                scr.style.fontSize = "0.75rem";
-                scr.scrollTop = 0;
-            }
-        } else if (state !== "CALLING") {
-            state = "DIALING";
-            typed += n;
-            scr.innerText = typed;
-            scr.style.fontSize = "1.5rem";
-        }
-    }
-
-    function makeCall() {
-        if (!typed) return;
-        state = "CALLING";
-        scr.style.fontSize = "1.1rem";
-        
-        const nomeEncontrado = allContacts[typed];
-        const displayIdentidade = nomeEncontrado ? nomeEncontrado : typed;
-        
-        // MOSTRA O NOME COMPLETO SEM CORTAR
-        scr.innerText = "Ligando para\n" + displayIdentidade + "...";
-        vib(100);
-
-        setTimeout(() => {
-            if (typed === "33441122") { 
-                scr.innerText = "Chamada\n00:00";
-                let s = 0;
-                const timer = setInterval(() => {
-                    s++;
-                    scr.innerText = "Chamada\n00:0" + s;
-                    if (s >= 3) {
-                        clearInterval(timer);
-                        success();
-                    }
-                }, 1000);
-            } else {
-                scr.innerText = "Chamada não\natendida";
-                vib(500);
-                setTimeout(home, 1500);
-            }
-        }, 1000);
-    }
-
-    function success() {
-        vib([100, 50, 100]);
-        document.body.classList.add('completed');
-        document.getElementById('check-mark').style.display = 'block';
-        window.parent.postMessage('nextPuzzle', '*');
-    }
+    function home() { vib(20); state = "IDLE"; typed = ""; scr.innerText = "Em espera..."; scr.style.fontSize = "1.1rem"; }
+    function menu() { vib(40); state = "MENU"; scr.innerText = "1. Perdidas\n2. Efetuadas\n3. Recebidas\n4. Contatos"; scr.style.fontSize = "1.1rem"; }
+    function press(n) { vib(20); if (state === "MENU") { if (menuContent[n]) { state = "SUBMENU"; scr.innerText = menuContent[n]; scr.style.fontSize = "0.75rem"; scr.scrollTop = 0; } } else if (state !== "CALLING") { state = "DIALING"; typed += n; scr.innerText = typed; scr.style.fontSize = "1.5rem"; } }
+    function makeCall() { if (!typed) return; state = "CALLING"; scr.style.fontSize = "1.1rem"; const nomeEncontrado = allContacts[typed]; const displayIdentidade = nomeEncontrado ? nomeEncontrado : typed; scr.innerText = "Ligando para\n" + displayIdentidade + "..."; vib(100); setTimeout(() => { if (typed === "33441122") { scr.innerText = "Chamada\n00:00"; let s = 0; const timer = setInterval(() => { s++; scr.innerText = "Chamada\n00:0" + s; if (s >= 3) { clearInterval(timer); success(); } }, 1000); } else { scr.innerText = "Chamada não\natendida"; vib(500); setTimeout(home, 1500); } }, 1000); }
+    function success() { vib([100, 50, 100]); document.body.classList.add('completed'); document.getElementById('check-mark').style.display = 'block'; window.parent.postMessage('nextPuzzle', '*'); }
 </script>
 </body>
 </html>
