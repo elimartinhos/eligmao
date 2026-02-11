@@ -8,15 +8,8 @@
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
         
         #game-header { 
-            width: 100%; 
-            padding: 15px 25px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            box-sizing: border-box; 
-            position: fixed; 
-            top: 0; 
-            z-index: 1000; 
+            width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; 
+            align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; 
         }
         
         #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
@@ -26,9 +19,8 @@
 
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
-        h2 { margin-top: 0; letter-spacing: 2px; }
         input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; transition: 0.3s; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
         button:disabled { background: #555; cursor: not-allowed; }
 
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
@@ -42,7 +34,7 @@
 
 <div id="login-screen">
     <div class="login-box">
-        <h2>ENTRAR / CRIAR</h2>
+        <h2 style="margin-top:0">ENTRAR / CRIAR</h2>
         <input type="text" id="username-input" placeholder="Usuário (máx 12)" maxlength="12">
         <br>
         <button id="login-btn" onclick="login()">ACESSAR</button>
@@ -56,13 +48,11 @@
 </div>
 
 <div id="admin-panel">
-    ADMIN: <button onclick="skip()" style="cursor:pointer; padding: 5px 10px;">SKIP</button>
+    ADMIN: <button onclick="skip()" style="cursor:pointer">SKIP</button>
 </div>
 
 <div id="scale-container">
-    <div id="wrapper">
-        <iframe id="puzzle-frame" src="about:blank"></iframe>
-    </div>
+    <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
 </div>
 
 <script>
@@ -70,10 +60,9 @@
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    // Pega o token do Vercel ou fica vazio para não travar o script
-    const GITHUB_TOKEN = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GITHUB_TOKEN) 
-                         ? process.env.NEXT_PUBLIC_GITHUB_TOKEN 
-                         : ""; 
+    // Pega o token injetado pelo Vercel. 
+    // Nota: Se rodar localmente, você pode colar o token aqui para testar.
+    const GITHUB_TOKEN = "ghp_seu_token_aqui_ou_deixe_vazio_para_o_vercel_injetar";
 
     let user = "";
     let level = 1;
@@ -81,111 +70,127 @@
     async function login() {
         const input = document.getElementById('username-input').value.trim();
         if (!input) return;
-        
+
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
-        btn.innerText = "CARREGANDO...";
+        btn.innerText = "CONECTANDO...";
 
         user = input;
         localStorage.setItem('p_user', user);
         
-        // Ativa painel se for admin
         if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
         
-        await syncData(true); // Passa true para fechar a tela de login só quando carregar
+        await syncData(true);
     }
 
     async function syncData(isInitial = false) {
-        if (!GITHUB_TOKEN) {
-            alert("Erro: Token não configurado no Vercel.");
-            document.getElementById('login-btn').disabled = false;
-            document.getElementById('login-btn').innerText = "ACESSAR";
+        // Fallback para caso a variável do Vercel não tenha sido injetada corretamente no build
+        const token = (GITHUB_TOKEN.startsWith("ghp_")) ? GITHUB_TOKEN : ""; 
+        
+        if (!token) {
+            console.error("Token ausente.");
+            // Se falhar, tentamos prosseguir apenas localmente para não travar o usuário
+            document.getElementById('top-player').innerText = "MODO OFFLINE (SEM TOKEN)";
+            if (isInitial) {
+                document.getElementById('login-screen').style.display = 'none';
+                loadPuzzle();
+            }
             return;
         }
 
         try {
             const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Cache-Control": "no-cache" }
+                headers: { "Authorization": `token ${token}`, "Cache-Control": "no-cache" }
             });
             const data = await res.json();
             const content = JSON.parse(atob(data.content));
             
-            // Lógica de Login/Criação: se o user não existe no JSON, tratamos como nível 1
+            // Se o usuário não existe, ele começa no 1
             level = content.players[user] || 1;
 
-            // Se for o login inicial e o usuário for novo, já salvamos ele no GitHub
+            // Se for novo login, já registra no GitHub
             if (isInitial && !content.players[user]) {
-                await updateGithub(); 
+                await saveToGithub(content, data.sha);
             }
 
-            // Atualiza ranking
-            let leader = { name: "---", lvl: 0 };
-            for (let p in content.players) {
-                if (content.players[p] > leader.lvl) {
-                    leader = { name: p, lvl: content.players[p] };
-                }
-            }
-
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
-            document.getElementById('puzzle-id').innerText = `#${level}`;
-            document.getElementById('user-info').innerText = user.toUpperCase();
+            updateUI(content);
             
             if (isInitial) {
                 document.getElementById('login-screen').style.display = 'none';
                 loadPuzzle();
             }
-            
-        } catch (e) { 
-            console.error("Erro:", e);
-            alert("Erro ao conectar com o GitHub.");
-            document.getElementById('login-btn').disabled = false;
-            document.getElementById('login-btn').innerText = "ACESSAR";
+        } catch (e) {
+            console.error("Erro na API:", e);
+            btnReset();
         }
+    }
+
+    function updateUI(content) {
+        let leader = { name: "---", lvl: 0 };
+        for (let p in content.players) {
+            if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
+        }
+        document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
+        document.getElementById('puzzle-id').innerText = `#${level}`;
+        document.getElementById('user-info').innerText = user.toUpperCase();
+    }
+
+    async function saveToGithub(existingContent = null, oldSha = null) {
+        const token = (GITHUB_TOKEN.startsWith("ghp_")) ? GITHUB_TOKEN : "";
+        if(!token) return;
+
+        let currentContent = existingContent;
+        let sha = oldSha;
+
+        if (!currentContent || !sha) {
+            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                headers: { "Authorization": `token ${token}`, "Cache-Control": "no-cache" }
+            });
+            const data = await res.json();
+            currentContent = JSON.parse(atob(data.content));
+            sha = data.sha;
+        }
+
+        currentContent.players[user] = level;
+
+        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+            method: "PUT",
+            headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: `Update ${user} -> ${level}`,
+                content: btoa(JSON.stringify(currentContent, null, 2)),
+                sha: sha
+            })
+        });
     }
 
     function loadPuzzle() {
         document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
     }
 
-    async function updateGithub() {
-        try {
-            const resGet = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Cache-Control": "no-cache" }
-            });
-            const dataGet = await resGet.json();
-            let content = JSON.parse(atob(dataGet.content));
-            
-            content.players[user] = level;
-
-            await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                method: "PUT",
-                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: `Progresso: ${user} - Nível ${level}`,
-                    content: btoa(JSON.stringify(content, null, 2)),
-                    sha: dataGet.sha
-                })
-            });
-            
-            syncData();
-        } catch (e) { console.error("Erro ao salvar:", e); }
+    function btnReset() {
+        const btn = document.getElementById('login-btn');
+        btn.disabled = false;
+        btn.innerText = "ACESSAR";
     }
 
-    window.addEventListener('message', (e) => {
+    window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
-            updateGithub();
+            await saveToGithub();
+            syncData();
             loadPuzzle();
         }
     });
 
     function skip() {
         level++;
-        updateGithub();
-        loadPuzzle();
+        saveToGithub().then(() => {
+            syncData();
+            loadPuzzle();
+        });
     }
 
-    // Auto-login
     window.onload = () => {
         const saved = localStorage.getItem('p_user');
         if(saved) {
