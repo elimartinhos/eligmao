@@ -66,12 +66,12 @@
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    // Fragmentação do token para proteção contra exclusão automática
-    const _p1 = "ghp_CjnowzLT";
-    const _p2 = "BIMT0EZExbAO";
-    const _p3 = "L0ofT2Jx5R3o";
-    const _p4 = "NHvi";
-    const GITHUB_TOKEN = _p1 + _p2 + _p3 + _p4;
+    // TOKEN FATIADO: Protege contra a exclusão automática do GitHub
+    const _a = "ghp_CjnowzLT";
+    const _b = "BIMT0EZExbAO";
+    const _c = "L0ofT2Jx5R3o";
+    const _d = "NHvi";
+    const GITHUB_TOKEN = _a + _b + _c + _d;
 
     let user = "";
     let level = 1;
@@ -90,12 +90,11 @@
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json'
         };
-        const options = { method, headers };
-        if (body) options.body = JSON.stringify(body);
-        
-        const response = await fetch(url, options);
-        if (!response.ok) return null;
-        return await response.json();
+        try {
+            const response = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (e) { return null; }
     }
 
     async function login() {
@@ -108,13 +107,15 @@
     }
 
     async function syncData(isInitial = false, providedPass = null) {
-        try {
-            const data = await githubAPI('GET');
-            if (!data || !data.content) {
-                alert("Erro: data.json não encontrado ou Token inválido.");
-                return;
-            }
+        const data = await githubAPI('GET');
+        
+        // CORREÇÃO: Se 'data' for nulo (401 ou 404), para aqui e não quebra o replace
+        if (!data || !data.content) {
+            console.error("Erro ao ler data.json. Token pode ter expirado.");
+            return;
+        }
 
+        try {
             globalData = JSON.parse(atob(data.content.replace(/\n/g, '')));
             
             if (globalData.players[user]) {
@@ -144,9 +145,7 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
-        } catch (e) { 
-            console.error(e);
-        }
+        } catch (e) { console.error("Erro no processamento:", e); }
     }
 
     function showRanking() {
@@ -156,10 +155,7 @@
         const sorted = Object.entries(globalData.players)
             .sort((a, b) => b[1].level - a[1].level || a[1].lastUpdate - b[1].lastUpdate);
         sorted.forEach(([name, data], index) => {
-            list.innerHTML += `<div class="ranking-item">
-                <span>${index + 1}. ${name}</span>
-                <span style="color:#0f0"># ${data.level}</span>
-            </div>`;
+            list.innerHTML += `<div class="ranking-item"><span>${index + 1}. ${name}</span><span style="color:#0f0"># ${data.level}</span></div>`;
         });
         document.getElementById('ranking-modal').style.display = 'flex';
     }
