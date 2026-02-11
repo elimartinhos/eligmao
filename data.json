@@ -1,16 +1,3 @@
 {
-  "players": {
-    "elimartinhos": {
-      "level": 2,
-      "pass": "894a8d014804accbd428e0ab7c61cf061ed82a694e8dd2c9e4fbbd71f351d583"
-    },
-    "raru": {
-      "level": 1,
-      "pass": "894a8d014804accbd428e0ab7c61cf061ed82a694e8dd2c9e4fbbd71f351d583"
-    },
-    "Babi": {
-      "level": 5,
-      "pass": "21479fe4c3ed12835d73e1572d927c0853dfa5f82698e3c8ce7352df80a62972"
-    }
-  }
+  "players": {}
 }
