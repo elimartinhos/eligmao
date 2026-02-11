@@ -6,30 +6,22 @@
     <title>ELIGMAO</title>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
-        
         #game-header { width: 100%; padding: 10px 20px; display: flex; justify-content: space-between; align-items: flex-start; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
-        
         #puzzle-id { color: white; font-size: 18px; font-weight: bold; width: 60px; padding-top: 5px; }
-        
         #top-player { color: #aaa; font-size: 11px; text-align: center; flex-grow: 1; text-transform: uppercase; cursor: pointer; line-height: 1.4; }
         #top-player span { color: #0f0; font-weight: bold; text-decoration: underline; }
-        
         #user-section { display: flex; flex-direction: column; align-items: flex-end; width: 120px; }
         #user-info { color: #0f0; font-size: 13px; font-weight: bold; text-align: right; margin-bottom: 4px; }
-        
         #skip-container { display: flex; justify-content: flex-end; width: 100%; }
         #skip-btn { background: transparent; border: 1px solid #444; color: #666; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 9px; text-transform: uppercase; transition: 0.3s; }
         #skip-btn:hover { border-color: #f00; color: #f00; }
-        
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
         input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 10px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
         button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; margin-top: 10px; }
-        
         #ranking-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; }
         .ranking-box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 1px solid #0f0; width: 300px; max-height: 70vh; overflow-y: auto; }
         .ranking-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; }
-
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -42,7 +34,8 @@
         <h2 style="margin-top:0">ELIGMAO</h2>
         <input type="text" id="username-input" placeholder="Usuário" maxlength="12">
         <input type="password" id="password-input" placeholder="Senha">
-        <button id="login-btn" onclick="login()">ACESSAR / CRIAR</button>
+        <input type="text" id="token-input" placeholder="GitHub Token" style="font-size: 10px;">
+        <button onclick="login()">ACESSAR / CRIAR</button>
     </div>
 </div>
 
@@ -70,9 +63,15 @@
 </div>
 
 <script>
+    // CONFIGURAÇÃO DO REPOSITÓRIO
+    const REPO_OWNER = "SEU_USUARIO_AQUI";
+    const REPO_NAME = "NOME_DO_REPO_AQUI";
+    const FILE_PATH = "data.json"; // Nome do arquivo onde ficam os players
+
     let user = "";
     let level = 1;
     let globalData = null;
+    let ghToken = "";
 
     async function hashPassword(string) {
         const utf8 = new TextEncoder().encode(string);
@@ -81,29 +80,40 @@
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    async function callAPI(method, body = null) {
-        const response = await fetch('/api/proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ method, body })
-        });
+    // NOVA FUNÇÃO PARA CHAMAR A API DO GITHUB DIRETAMENTE
+    async function githubAPI(method, body = null) {
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+        const headers = {
+            'Authorization': `token ${ghToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        };
+
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+
+        const response = await fetch(url, options);
         return await response.json();
     }
 
     async function login() {
         const uInput = document.getElementById('username-input').value.trim();
         const pInput = document.getElementById('password-input').value.trim();
-        if (!uInput || !pInput) return alert("Preencha tudo!");
+        const tInput = document.getElementById('token-input').value.trim();
+        
+        if (!uInput || !pInput || !tInput) return alert("Preencha Usuário, Senha e Token!");
 
         user = uInput;
+        ghToken = tInput;
         const hashedPass = await hashPassword(pInput);
         await syncData(true, hashedPass);
     }
 
     async function syncData(isInitial = false, providedPass = null) {
         try {
-            const data = await callAPI('GET');
-            globalData = JSON.parse(atob(data.content));
+            const data = await githubAPI('GET');
+            // GitHub retorna o conteúdo em base64 com quebras de linha
+            globalData = JSON.parse(atob(data.content.replace(/\n/g, '')));
             
             if (globalData.players[user]) {
                 const userData = globalData.players[user];
@@ -116,13 +126,14 @@
             } else if (isInitial) {
                 level = 1;
                 globalData.players[user] = { level: 1, pass: providedPass, lastUpdate: Date.now() };
-                await callAPI('PUT', {
+                await githubAPI('PUT', {
                     message: `Novo user: ${user}`,
                     content: btoa(JSON.stringify(globalData, null, 2)),
                     sha: data.sha
                 });
             }
 
+            // Cálculo do líder
             let leader = { name: "---", lvl: 0, time: Infinity };
             for (let p in globalData.players) {
                 const pLvl = globalData.players[p].level;
@@ -139,17 +150,20 @@
             if (isInitial) {
                 localStorage.setItem('p_user', user);
                 localStorage.setItem('p_hash', providedPass);
+                localStorage.setItem('p_token', ghToken);
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e);
+            alert("Erro ao sincronizar. Verifique o Token e o nome do Repo.");
+        }
     }
 
     function showRanking() {
         if (!globalData) return;
         const list = document.getElementById('ranking-list');
         list.innerHTML = "";
-        
         const sorted = Object.entries(globalData.players)
             .sort((a, b) => b[1].level - a[1].level || a[1].lastUpdate - b[1].lastUpdate);
 
@@ -165,11 +179,11 @@
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
-            const data = await callAPI('GET');
-            const content = JSON.parse(atob(data.content));
+            const data = await githubAPI('GET');
+            const content = JSON.parse(atob(data.content.replace(/\n/g, '')));
             content.players[user].level = level;
             content.players[user].lastUpdate = Date.now();
-            await callAPI('PUT', {
+            await githubAPI('PUT', {
                 message: `Lvl ${level}: ${user}`,
                 content: btoa(JSON.stringify(content, null, 2)),
                 sha: data.sha
@@ -180,8 +194,8 @@
     });
 
     window.onload = async () => {
-        const u = localStorage.getItem('p_user'), h = localStorage.getItem('p_hash');
-        if(u && h) { user = u; await syncData(true, h); }
+        const u = localStorage.getItem('p_user'), h = localStorage.getItem('p_hash'), t = localStorage.getItem('p_token');
+        if(u && h && t) { user = u; ghToken = t; await syncData(true, h); }
     }
 </script>
 </body>
