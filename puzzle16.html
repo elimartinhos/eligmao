@@ -6,27 +6,31 @@
     <style>
         body { background: #0a0a0a; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: white; user-select: none; font-family: sans-serif; }
         
-        #game-container { position: relative; width: 450px; height: 520px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        /* Reduzido de 450px/520px para 382px/442px */
+        #game-container { position: relative; width: 382px; height: 442px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         
-        #game-board { position: relative; width: 450px; height: 450px; background: #111; border: 4px solid #333; border-radius: 50%; box-shadow: inset 0 0 60px #000; transition: filter 0.5s, opacity 0.5s; }
+        /* Reduzido de 450px para 382px */
+        #game-board { position: relative; width: 382px; height: 382px; background: #111; border: 3px solid #333; border-radius: 50%; box-shadow: inset 0 0 51px #000; transition: filter 0.5s, opacity 0.5s; }
         
         canvas { position: absolute; inset: 0; pointer-events: none; }
-        .slot { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: #1a1a1a; border: 2px solid #444; transform: translate(-50%, -50%); z-index: 1; }
+        /* Slots de 34px para 29px */
+        .slot { position: absolute; width: 29px; height: 29px; border-radius: 50%; background: #1a1a1a; border: 2px solid #444; transform: translate(-50%, -50%); z-index: 1; }
         
-        .piece { position: absolute; width: 42px; height: 42px; border-radius: 50%; transform: translate(-50%, -50%); cursor: grab; z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.8); transition: left 0.5s ease-in-out, top 0.5s ease-in-out; }
+        /* Peças de 42px para 36px */
+        .piece { position: absolute; width: 36px; height: 36px; border-radius: 50%; transform: translate(-50%, -50%); cursor: grab; z-index: 10; box-shadow: 0 4px 13px rgba(0,0,0,0.8); transition: left 0.5s ease-in-out, top 0.5s ease-in-out; }
         .piece.dragging { transition: none; cursor: grabbing; z-index: 100; }
         
         .red { background: radial-gradient(circle at 30% 30%, #ff3333, #600); border: 2px solid #800; }
         .gray { background: radial-gradient(circle at 30% 30%, #eee, #444); border: 2px solid #666; }
 
-        /* Botão Reverter Centralizado */
-        #reset-btn { margin-top: 20px; width: 50px; height: 50px; background: #222; border: 2px solid #444; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; z-index: 150; }
+        /* Botão Reset de 50px para 42px */
+        #reset-btn { margin-top: 17px; width: 42px; height: 42px; background: #222; border: 2px solid #444; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; z-index: 150; }
         #reset-btn:hover { background: #333; border-color: #666; }
-        #reset-btn svg { width: 30px; height: 30px; fill: white; }
+        #reset-btn svg { width: 25px; height: 25px; fill: white; }
 
-        /* Finalização */
+        /* Check-mark de 250px para 212px */
         .completed #game-board, .completed #reset-btn { filter: grayscale(1) opacity(0.3); pointer-events: none; }
-        #check-mark { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 250px; color: #00ff00; display: none; z-index: 200; pointer-events: none; text-shadow: 0 0 50px rgba(0,255,0,0.5); font-weight: bold; }
+        #check-mark { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 212px; color: #00ff00; display: none; z-index: 200; pointer-events: none; text-shadow: 0 0 42px rgba(0,255,0,0.5); font-weight: bold; }
     </style>
 </head>
 <body>
@@ -47,8 +51,10 @@
     const board = document.getElementById('game-board');
     const canvas = document.getElementById('lines');
     const ctx = canvas.getContext('2d');
-    canvas.width = 450; canvas.height = 450;
-    const centerX = 225, centerY = 225, radius = 175;
+    // Canvas de 450 para 382
+    canvas.width = 382; canvas.height = 382;
+    // Centro de 225 para 191 | Raio de 175 para 149
+    const centerX = 191, centerY = 191, radius = 149;
     
     const points = [];
     for (let i = 0; i < 8; i++) {
@@ -64,7 +70,6 @@
         document.body.classList.remove('completed');
         document.getElementById('check-mark').style.display = 'none';
         
-        // Posições iniciais solicitadas
         const initialData = [
             { type: 'gray', pos: 7 }, { type: 'gray', pos: 1 },
             { type: 'red', pos: 3 }, { type: 'red', pos: 5 }
@@ -74,17 +79,14 @@
             pieces = initialData;
             render();
         } else {
-            // Animação de volta: atualiza posições e o CSS cuida da transição
-            pieces.forEach((p, i) => {
-                p.pos = initialData[i].pos;
-            });
+            pieces.forEach((p, i) => { p.pos = initialData[i].pos; });
             render();
         }
     }
 
     function init() {
-        ctx.strokeStyle = '#555'; ctx.lineWidth = 3;
-        ctx.setLineDash([8, 4]);
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 2.5; // Ajustado
+        ctx.setLineDash([7, 3.5]); // Ajustado
         adj.forEach((targets, i) => {
             targets.forEach(t => {
                 ctx.beginPath(); ctx.moveTo(points[i].x, points[i].y);
@@ -110,10 +112,10 @@
                 div.style.left = points[p.pos].x + 'px';
                 div.style.top = points[p.pos].y + 'px';
                 div.onmousedown = (e) => startDrag(e, idx);
+                div.ontouchstart = (e) => startDrag(e, idx); // Suporte Mobile
                 board.appendChild(div);
             });
         } else {
-            // Apenas move as peças existentes para disparar a transition
             pieces.forEach((p, idx) => {
                 const div = document.getElementById(`piece-${idx}`);
                 div.style.left = points[p.pos].x + 'px';
@@ -125,16 +127,21 @@
     function startDrag(e, idx) {
         if (document.body.classList.contains('completed')) return;
         const p = pieces[idx];
-        const el = e.target;
+        const el = document.getElementById(`piece-${idx}`);
         el.classList.add('dragging');
         
         const rect = board.getBoundingClientRect();
         const startPt = points[p.pos];
         const validTargets = adj[p.pos].filter(tIdx => !pieces.some(o => o.pos === tIdx));
 
-        function move(e) {
-            const mX = e.clientX - rect.left;
-            const mY = e.clientY - rect.top;
+        function getPos(evt) {
+            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function move(evt) {
+            const pos = getPos(evt);
             let bestX = startPt.x, bestY = startPt.y;
             let minD = Infinity;
 
@@ -143,10 +150,10 @@
                 const dx = targetPt.x - startPt.x;
                 const dy = targetPt.y - startPt.y;
                 const distSq = dx * dx + dy * dy;
-                const t = Math.max(0, Math.min(1, ((mX - startPt.x) * dx + (mY - startPt.y) * dy) / distSq));
+                const t = Math.max(0, Math.min(1, ((pos.x - startPt.x) * dx + (pos.y - startPt.y) * dy) / distSq));
                 const projX = startPt.x + t * dx;
                 const projY = startPt.y + t * dy;
-                const dist = Math.sqrt((mX - projX)**2 + (mY - projY)**2);
+                const dist = Math.sqrt((pos.x - projX)**2 + (pos.y - projY)**2);
                 if (dist < minD) { minD = dist; bestX = projX; bestY = projY; }
             });
 
@@ -154,16 +161,18 @@
             el.style.top = bestY + 'px';
         }
 
-        function stop(e) {
+        function stop(evt) {
             document.removeEventListener('mousemove', move);
             document.removeEventListener('mouseup', stop);
+            document.removeEventListener('touchmove', move);
+            document.removeEventListener('touchend', stop);
             el.classList.remove('dragging');
             
             const mX = parseFloat(el.style.left), mY = parseFloat(el.style.top);
             let closest = p.pos;
             validTargets.forEach(tIdx => {
                 const pt = points[tIdx];
-                if (Math.sqrt((pt.x - mX)**2 + (pt.y - mY)**2) < 25) closest = tIdx;
+                if (Math.sqrt((pt.x - mX)**2 + (pt.y - mY)**2) < 21) closest = tIdx; // Ajustado
             });
             p.pos = closest;
             render();
@@ -171,6 +180,8 @@
         }
         document.addEventListener('mousemove', move);
         document.addEventListener('mouseup', stop);
+        document.addEventListener('touchmove', move, { passive: false });
+        document.addEventListener('touchend', stop);
     }
 
     function checkWin() {
