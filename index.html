@@ -62,9 +62,10 @@
 </div>
 
 <script>
-    const REPO_OWNER = "elimartinhos";
+    // --- CONFIGURAÇÃO MANUAL ---
+    const REPO_OWNER = "elimartinhos"; 
     const REPO_NAME = "eligmao";
-    const GITHUB_TOKEN = "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";
+    const GITHUB_TOKEN = "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"; // O token agora fica escondido aqui no código
     const FILE_PATH = "data.json";
 
     let user = "";
@@ -74,7 +75,8 @@
     async function hashPassword(string) {
         const utf8 = new TextEncoder().encode(string);
         const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     async function githubAPI(method, body = null) {
@@ -133,7 +135,7 @@
 
             document.getElementById('puzzle-id').innerText = `# ${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(# ${leader.lvl})`;
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(ESTÁ NO # ${leader.lvl})`;
             
             if (isInitial) {
                 localStorage.setItem('p_user', user);
@@ -143,6 +145,7 @@
             }
         } catch (e) { 
             console.error(e);
+            alert("Erro de conexão. Verifique o Token e Repo no código.");
         }
     }
 
