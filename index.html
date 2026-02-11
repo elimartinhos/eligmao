@@ -5,180 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { background: black; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: white; user-select: none; font-family: sans-serif; overflow: hidden; }
-        .case { width: 380px; height: 600px; background: #1a1a1a; border: 4px solid #333; border-radius: 20px; display: flex; flex-direction: column; align-items: center; padding: 20px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
         
-        .hint-bar { width: 100%; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; margin-bottom: 20px; background: #222; border-radius: 10px; padding: 10px 0; }
-        .hint-icon { font-size: 2rem; margin-right: 10px; }
+        /* Container para o puzzle (iframe) */
+        #puzzle-container { width: 100%; height: 100%; border: none; }
 
-        .game-area { width: 320px; height: 450px; background: #2a2a2a; border-radius: 10px; position: relative; overflow: visible; border: 2px solid #444; }
-        
-        .insect { 
-            position: absolute; 
-            font-size: 45px; 
-            cursor: pointer; 
+        /* Botão Admin Visível para pular */
+        #admin-skip { 
+            position: fixed; 
+            top: 10px; 
+            right: 10px; 
+            width: 40px; 
+            height: 20px; 
+            background: rgba(255, 0, 0, 0.5); 
+            border: 1px solid red;
+            color: white;
+            font-size: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 80px; 
-            height: 80px;
-            z-index: 10;
-            transition: transform 0.2s ease-out;
+            cursor: pointer; 
+            z-index: 9999;
+            border-radius: 4px;
+            font-family: monospace;
         }
-
-        .completed .case { filter: grayscale(1) opacity(0.3); pointer-events: none; }
-        #check-mark { position: absolute; font-size: 15rem; color: #00ff00; display: none; z-index: 100; text-shadow: 0 0 30px rgba(0,255,0,0.5); }
-        
-        #status { font-family: monospace; margin-top: 10px; color: #aaa; }
-
-        /* Botão discreto para pular */
-        #skip-btn { 
-            position: fixed; 
-            bottom: 0; 
-            right: 0; 
-            width: 15px; 
-            height: 15px; 
-            background: transparent; 
-            cursor: default; 
-            z-index: 999; 
-        }
+        #admin-skip:hover { background: red; }
     </style>
 </head>
 <body>
 
-<div id="check-mark">✓</div>
+<div id="admin-skip" onclick="skipPuzzle()">SKIP</div>
 
-<div id="skip-btn" onclick="success()"></div>
-
-<div class="case" id="main-case">
-    <div class="hint-bar">
-        <span class="hint-icon">🪰</span> = 4
-    </div>
-
-    <div class="game-area" id="game-area"></div>
-
-    <div id="status">Moscas: 0/4</div>
-</div>
+<iframe id="puzzle-frame" src="puzzle1.html" style="width:100%; height:100%; border:none;"></iframe>
 
 <script>
-    const gameArea = document.getElementById('game-area');
-    const statusTxt = document.getElementById('status');
-    let score = 0;
-    let gameActive = true;
-    let currentTimeout;
-    let pool = [];
-
-    function resetPool() {
-        pool = [
-            '🪰', '🪰', '🪰', '🪰', 
-            '🐝', '🐝', '🐝', '🐝', '🐝', '🐝', '🐝', '🐝'
-        ].sort(() => Math.random() - 0.5);
-        score = 0;
-        updateStatus();
+    // Função para pular o puzzle manualmente
+    function skipPuzzle() {
+        console.log("Admin: Pulando puzzle...");
+        nextPuzzle();
     }
 
-    function vib(t) { if (navigator.vibrate) navigator.vibrate(t); }
-
-    function updateStatus() {
-        statusTxt.innerText = `Moscas: ${score}/4`;
+    // Lógica de progressão (Exemplo básico)
+    let currentPuzzle = 1;
+    function nextPuzzle() {
+        currentPuzzle++;
+        const frame = document.getElementById('puzzle-frame');
+        frame.src = `puzzle${currentPuzzle}.html`;
     }
 
-    function spawn() {
-        if (!gameActive) return;
-        gameArea.innerHTML = '';
-
-        if (pool.length === 0) {
-            if (score < 4) pool.push('🪰');
-            else { success(); return; }
+    // Escuta o comando vindo de dentro dos iframes
+    window.addEventListener('message', (event) => {
+        if (event.data === 'nextPuzzle') {
+            nextPuzzle();
         }
-
-        const type = pool.pop();
-        const insect = document.createElement('div');
-        insect.className = 'insect';
-        insect.innerText = type;
-
-        const centerX = (gameArea.clientWidth / 2) - 40;
-        const centerY = (gameArea.clientHeight / 2) - 40;
-        
-        insect.style.left = centerX + 'px';
-        insect.style.top = centerY + 'px';
-
-        const exitSide = Math.floor(Math.random() * 4);
-        let destX, destY;
-        if(exitSide === 0) { destX = -180; destY = Math.random() * 450; }
-        else if(exitSide === 1) { destX = 480; destY = Math.random() * 450; }
-        else if(exitSide === 2) { destX = Math.random() * 320; destY = -180; }
-        else { destX = Math.random() * 320; destY = 630; }
-
-        const midX1 = centerX + (Math.random() - 0.5) * 350;
-        const midY1 = centerY + (Math.random() - 0.5) * 350;
-        
-        const getAngle = (x1, y1, x2, y2, insectType) => {
-            const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
-            return insectType === '🐝' ? angle + 180 : angle + 90;
-        };
-
-        const angle1 = getAngle(centerX, centerY, midX1, midY1, type);
-        const angle2 = getAngle(midX1, midY1, destX, destY, type);
-
-        insect.animate([
-            { left: centerX + 'px', top: centerY + 'px', transform: `rotate(${angle1}deg)` },
-            { left: midX1 + 'px', top: midY1 + 'px', transform: `rotate(${angle1}deg)` },
-            { left: midX1 + 'px', top: midY1 + 'px', transform: `rotate(${angle2}deg)` },
-            { left: destX + 'px', top: destY + 'px', transform: `rotate(${angle2}deg)` }
-        ], {
-            duration: 2200, 
-            easing: 'ease-in-out',
-            fill: 'forwards'
-        });
-
-        insect.onclick = (e) => {
-            e.stopPropagation();
-            insect.style.pointerEvents = 'none'; 
-            clearTimeout(currentTimeout);
-            if (type === '🪰') {
-                score++;
-                updateStatus();
-                vib(30);
-                if (score === 4) success();
-                else setTimeout(spawn, 300);
-            } else {
-                restartGame("Você matou uma abelha!");
-            }
-        };
-
-        gameArea.appendChild(insect);
-
-        currentTimeout = setTimeout(() => {
-            if (type === '🪰') {
-                restartGame("A mosca fugiu!");
-            } else {
-                spawn();
-            }
-        }, 2250); 
-    }
-
-    function restartGame(msg) {
-        gameActive = false;
-        vib(400);
-        gameArea.innerHTML = `<div style="padding:20px; text-align:center; color: #ff5555; position:absolute; width:100%; top:40%; font-weight:bold">${msg}</div>`;
-        setTimeout(() => {
-            gameActive = true;
-            resetPool();
-            spawn();
-        }, 1500);
-    }
-
-    function success() {
-        gameActive = false;
-        gameArea.innerHTML = '';
-        vib([100, 50, 100]);
-        document.body.classList.add('completed');
-        document.getElementById('check-mark').style.display = 'block';
-        window.parent.postMessage('nextPuzzle', '*');
-    }
-
-    resetPool();
-    spawn();
+    });
 </script>
 </body>
 </html>
