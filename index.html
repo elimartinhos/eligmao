@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELIGMAO - Online</title>
+    <title>ELIGMAO</title>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
         #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); }
@@ -15,7 +15,7 @@
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
         input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; }
         button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
-        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+        button:disabled { background: #444; color: #888; }
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -27,7 +27,7 @@
 <div id="login-screen">
     <div class="login-box">
         <h2 style="margin-top:0">ENTRAR / CRIAR</h2>
-        <input type="text" id="username-input" placeholder="Usuário (máx 12)" maxlength="12">
+        <input type="text" id="username-input" placeholder="Usuário" maxlength="12">
         <br>
         <button id="login-btn" onclick="login()">ACESSAR</button>
     </div>
@@ -39,7 +39,7 @@
     <div id="user-info">---</div>
 </div>
 
-<div id="admin-panel">ADMIN: <button onclick="skip()" style="cursor:pointer">SKIP</button></div>
+<div id="admin-panel">ADMIN: <button onclick="skip()">SKIP</button></div>
 
 <div id="scale-container">
     <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
@@ -49,9 +49,6 @@
     const REPO_OWNER = "elimartinhos";
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
-
-    // O Vercel NÃO injeta variáveis no navegador via process.env em HTML puro.
-    // Esta técnica é o padrão para "queimar" a variável no build do Vercel.
     const GITHUB_TOKEN = "{{NEXT_PUBLIC_GITHUB_TOKEN}}"; 
 
     let user = "";
@@ -61,56 +58,42 @@
         const input = document.getElementById('username-input').value.trim();
         if (!input) return;
 
+        user = input;
+        localStorage.setItem('p_user', user);
+        
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
         btn.innerText = "CONECTANDO...";
 
-        user = input;
-        localStorage.setItem('p_user', user);
-        
         if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
         
         await syncData(true);
     }
 
-    async function fetchGitHub(method = "GET", body = null, sha = null) {
-        // Se a variável não foi substituída pelo Vercel, o código avisará no console
+    async function fetchGH(method = "GET", body = null, sha = null) {
         const token = GITHUB_TOKEN.startsWith("{{") ? "" : GITHUB_TOKEN;
+        const headers = { "Authorization": `token ${token}`, "Content-Type": "application/json" };
+        const opt = { method, headers };
+        if (body) opt.body = JSON.stringify({ message: `Update ${user}`, content: btoa(JSON.stringify(body, null, 2)), sha });
 
-        const headers = {
-            "Authorization": `token ${token}`,
-            "Content-Type": "application/json"
-        };
-
-        const options = { method, headers };
-        if (body) {
-            options.body = JSON.stringify({
-                message: `Update ${user}`,
-                content: btoa(JSON.stringify(body, null, 2)),
-                sha: sha
-            });
-        }
-
-        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, options);
-        if (!res.ok) throw new Error("GitHub API Error");
+        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, opt);
+        if (!res.ok) throw new Error("API Error");
         return await res.json();
     }
 
     async function syncData(isInitial = false) {
         try {
-            const data = await fetchGitHub("GET");
+            const data = await fetchGH("GET");
             const content = JSON.parse(atob(data.content));
             
-            // Se o usuário não existe, tratamos como novo e salvamos imediatamente
             if (!content.players[user]) {
                 content.players[user] = 1;
                 level = 1;
-                await fetchGitHub("PUT", content, data.sha);
+                await fetchGH("PUT", content, data.sha);
             } else {
                 level = content.players[user];
             }
 
-            // Atualiza ranking
             let leader = { name: "---", lvl: 0 };
             for (let p in content.players) {
                 if (content.players[p] > leader.lvl) leader = { name: p, lvl: content.players[p] };
@@ -122,37 +105,31 @@
             
             if (isInitial) {
                 document.getElementById('login-screen').style.display = 'none';
-                loadPuzzle();
+                document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
         } catch (e) {
             console.error(e);
-            alert("ERRO DE TOKEN: O Vercel não injetou a variável. Verifique se o nome é NEXT_PUBLIC_GITHUB_TOKEN.");
+            alert("Erro de conexão. Verifique o Token no Vercel.");
             document.getElementById('login-btn').disabled = false;
             document.getElementById('login-btn').innerText = "ACESSAR";
         }
-    }
-
-    function loadPuzzle() {
-        document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
     }
 
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
             try {
-                const data = await fetchGitHub("GET");
+                const data = await fetchGH("GET");
                 const content = JSON.parse(atob(data.content));
                 content.players[user] = level;
-                await fetchGitHub("PUT", content, data.sha);
+                await fetchGH("PUT", content, data.sha);
                 syncData();
-                loadPuzzle();
+                document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             } catch (err) { console.error(err); }
         }
     });
 
-    function skip() {
-        window.postMessage('nextPuzzle', '*');
-    }
+    function skip() { window.postMessage('nextPuzzle', '*'); }
 
     window.onload = () => {
         const saved = localStorage.getItem('p_user');
