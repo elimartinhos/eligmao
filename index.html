@@ -14,7 +14,6 @@
         #top-player { color: #aaa; font-size: 11px; text-align: center; flex-grow: 1; text-transform: uppercase; cursor: pointer; line-height: 1.4; }
         #top-player span { color: #0f0; font-weight: bold; text-decoration: underline; }
         
-        /* Container da direita: Nome + Botão Skip */
         #user-section { display: flex; flex-direction: column; align-items: flex-end; width: 120px; }
         #user-info { color: #0f0; font-size: 13px; font-weight: bold; text-align: right; margin-bottom: 4px; }
         
@@ -56,7 +55,7 @@
 </div>
 
 <div id="game-header">
-    <div id="puzzle-id">NÍVEL --</div>
+    <div id="puzzle-id"># --</div>
     <div id="top-player" onclick="showRanking()">CARREGANDO...</div>
     <div id="user-section">
         <div id="user-info">---</div>
@@ -133,10 +132,9 @@
                 }
             }
 
-            document.getElementById('puzzle-id').innerText = `NÍVEL ${level}`;
+            document.getElementById('puzzle-id').innerText = `# ${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
-            // Quebra de linha adicionada aqui
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(ESTÁ NO NÍVEL ${leader.lvl})`;
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(ESTÁ NO # ${leader.lvl})`;
             
             if (isInitial) {
                 localStorage.setItem('p_user', user);
@@ -158,7 +156,7 @@
         sorted.forEach(([name, data], index) => {
             list.innerHTML += `<div class="ranking-item">
                 <span>${index + 1}. ${name}</span>
-                <span style="color:#0f0">NÍVEL ${data.level}</span>
+                <span style="color:#0f0"># ${data.level}</span>
             </div>`;
         });
         document.getElementById('ranking-modal').style.display = 'flex';
