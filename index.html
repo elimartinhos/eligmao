@@ -8,14 +8,26 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
+        
+        /* Header e Top Player */
         #game-header { width: 100%; padding: 10px 20px; display: flex; justify-content: space-between; align-items: flex-start; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
         #puzzle-id { color: white; font-size: 18px; font-weight: bold; width: 60px; padding-top: 5px; }
-        #user-info { color: #0f0; font-size: 13px; font-weight: bold; text-align: right; }
+        #top-player { color: #aaa; font-size: 11px; text-align: center; flex-grow: 1; text-transform: uppercase; cursor: pointer; line-height: 1.4; padding: 0 10px; }
+        #top-player span { color: #0f0; font-weight: bold; text-decoration: underline; }
+        #user-info { color: #0f0; font-size: 13px; font-weight: bold; text-align: right; width: 80px; }
+
+        /* Telas e Modais */
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
+        #ranking-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; }
+        .ranking-box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 1px solid #0f0; width: 300px; max-height: 70vh; overflow-y: auto; text-align: center; }
+        .ranking-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; }
+
+        /* Inputs e Botões */
         input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 10px; text-align: center; box-sizing: border-box; font-size: 16px; outline: none; }
-        button { padding: 12px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; color: black; transition: 0.3s; }
-        button:hover { background: #0c0; }
+        button { padding: 12px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; color: black; }
+
+        /* Game Frame */
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -32,8 +44,17 @@
     </div>
 </div>
 
+<div id="ranking-modal" onclick="this.style.display='none'">
+    <div class="ranking-box" onclick="event.stopPropagation()">
+        <h3 style="color:#0f0; margin-top:0">RANKING</h3>
+        <div id="ranking-list"></div>
+        <button onclick="document.getElementById('ranking-modal').style.display='none'" style="margin-top:20px">FECHAR</button>
+    </div>
+</div>
+
 <div id="game-header">
     <div id="puzzle-id"># --</div>
+    <div id="top-player" onclick="showRanking()">CARREGANDO...</div>
     <div id="user-info">---</div>
 </div>
 
@@ -42,7 +63,6 @@
 </div>
 
 <script>
-    // Suas chaves configuradas
     const firebaseConfig = {
         apiKey: "AIzaSyDFp3cSSsaTBl0DhLOPIhqerdGkWWTdc6s",
         authDomain: "eligmao.firebaseapp.com",
@@ -53,7 +73,6 @@
         appId: "1:485188683202:web:c5081c03be7a82e0d6c25b"
     };
 
-    // Inicialização
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     let user = "";
@@ -61,24 +80,16 @@
     async function login() {
         const u = document.getElementById('u-in').value.trim().toLowerCase();
         const p = document.getElementById('p-in').value.trim();
-        if(!u || !p) return alert("Preencha os campos!");
+        if(!u || !p) return;
 
         const snap = await db.ref('players/' + u).once('value');
         const data = snap.val();
 
         if(data) {
-            if(data.pass === p) {
-                start(u, data.level);
-            } else {
-                alert("Senha incorreta!");
-            }
+            if(data.pass === p) start(u, data.level);
+            else alert("Senha incorreta");
         } else {
-            // Cria novo jogador se não existir
-            await db.ref('players/' + u).set({ 
-                level: 1, 
-                pass: p, 
-                last: Date.now() 
-            });
+            await db.ref('players/' + u).set({ level: 1, pass: p, last: Date.now() });
             start(u, 1);
         }
     }
@@ -87,6 +98,7 @@
         user = u;
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('user-info').innerText = u.toUpperCase();
+        updateTopPlayer();
         load(lvl);
     }
 
@@ -95,18 +107,39 @@
         document.getElementById('puzzle-frame').src = `puzzle${lvl}.html`;
     }
 
-    // Escuta o comando de passar de nível vindo dos puzzles
+    function showRanking() {
+        db.ref('players').once('value', (snap) => {
+            const players = snap.val();
+            if (!players) return;
+            const list = document.getElementById('ranking-list');
+            list.innerHTML = "";
+            const sorted = Object.entries(players)
+                .sort((a, b) => b[1].level - a[1].level || a[1].last - b[1].last);
+            sorted.forEach(([name, data], index) => {
+                list.innerHTML += `<div class="ranking-item">
+                    <span>${index + 1}. ${name}</span>
+                    <span style="color:#0f0"># ${data.level}</span>
+                </div>`;
+            });
+            document.getElementById('ranking-modal').style.display = 'flex';
+        });
+    }
+
+    function updateTopPlayer() {
+        db.ref('players').on('value', (snap) => {
+            const players = snap.val();
+            if (!players) return;
+            const sorted = Object.entries(players).sort((a, b) => b[1].level - a[1].level || a[1].last - b[1].last);
+            const top = sorted[0];
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${top[0].toUpperCase()} (#${top[1].level})</span>`;
+        });
+    }
+
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             const snap = await db.ref('players/' + user).once('value');
-            const currentData = snap.val();
-            const newLvl = (currentData.level || 1) + 1;
-            
-            await db.ref('players/' + user).update({ 
-                level: newLvl, 
-                last: Date.now() 
-            });
-            
+            const newLvl = (snap.val().level || 1) + 1;
+            await db.ref('players/' + user).update({ level: newLvl, last: Date.now() });
             load(newLvl);
         }
     });
