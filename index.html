@@ -6,16 +6,16 @@
     <title>ELIGMAO</title>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
-        #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); }
+        #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
         #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
         #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; }
         #top-player span { color: #0f0; font-weight: bold; }
         #user-info { color: #0f0; font-size: 16px; font-weight: bold; width: 150px; text-align: right; }
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
-        input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
-        button:disabled { background: #444; color: #888; }
+        .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
+        input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; }
+        button:disabled { background: #333; color: #777; }
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -35,7 +35,7 @@
 
 <div id="game-header">
     <div id="puzzle-id">#1</div>
-    <div id="top-player">CARREGANDO...</div>
+    <div id="top-player">SINCRONIZANDO...</div>
     <div id="user-info">---</div>
 </div>
 
@@ -46,13 +46,18 @@
 </div>
 
 <script>
-    const REPO_OWNER = "elimartinhos";
-    const REPO_NAME = "eligmao";
-    const FILE_PATH = "data.json";
-    const GITHUB_TOKEN = "{{NEXT_PUBLIC_GITHUB_TOKEN}}"; 
-
     let user = "";
     let level = 1;
+
+    async function callAPI(method, body = null) {
+        const response = await fetch('/api/proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method, body })
+        });
+        if (!response.ok) throw new Error("Erro na rota /api/proxy");
+        return await response.json();
+    }
 
     async function login() {
         const input = document.getElementById('username-input').value.trim();
@@ -70,26 +75,19 @@
         await syncData(true);
     }
 
-    async function fetchGH(method = "GET", body = null, sha = null) {
-        const token = GITHUB_TOKEN.startsWith("{{") ? "" : GITHUB_TOKEN;
-        const headers = { "Authorization": `token ${token}`, "Content-Type": "application/json" };
-        const opt = { method, headers };
-        if (body) opt.body = JSON.stringify({ message: `Update ${user}`, content: btoa(JSON.stringify(body, null, 2)), sha });
-
-        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, opt);
-        if (!res.ok) throw new Error("API Error");
-        return await res.json();
-    }
-
     async function syncData(isInitial = false) {
         try {
-            const data = await fetchGH("GET");
+            const data = await callAPI('GET');
             const content = JSON.parse(atob(data.content));
             
             if (!content.players[user]) {
                 content.players[user] = 1;
                 level = 1;
-                await fetchGH("PUT", content, data.sha);
+                await callAPI('PUT', {
+                    message: `Novo jogador: ${user}`,
+                    content: btoa(JSON.stringify(content, null, 2)),
+                    sha: data.sha
+                });
             } else {
                 level = content.players[user];
             }
@@ -109,7 +107,7 @@
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão. Verifique o Token no Vercel.");
+            alert("Erro ao conectar com a API. Verifique se o arquivo api/proxy.js existe no seu repositório.");
             document.getElementById('login-btn').disabled = false;
             document.getElementById('login-btn').innerText = "ACESSAR";
         }
@@ -119,10 +117,14 @@
         if (e.data === 'nextPuzzle') {
             level++;
             try {
-                const data = await fetchGH("GET");
+                const data = await callAPI('GET');
                 const content = JSON.parse(atob(data.content));
                 content.players[user] = level;
-                await fetchGH("PUT", content, data.sha);
+                await callAPI('PUT', {
+                    message: `Update ${user}`,
+                    content: btoa(JSON.stringify(content, null, 2)),
+                    sha: data.sha
+                });
                 syncData();
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             } catch (err) { console.error(err); }
