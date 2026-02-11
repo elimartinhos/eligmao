@@ -8,14 +8,19 @@
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
         #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
         #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
-        #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; }
-        #top-player span { color: #0f0; font-weight: bold; }
+        #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; cursor: pointer; }
+        #top-player span { color: #0f0; font-weight: bold; text-decoration: underline; }
         #user-info { color: #0f0; font-size: 16px; font-weight: bold; width: 150px; text-align: right; }
+        
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 280px; }
         input { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 10px; font-size: 16px; outline: none; text-align: center; box-sizing: border-box; }
         button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; width: 100%; margin-top: 10px; }
-        button:disabled { background: #333; color: #777; }
+        
+        #ranking-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; }
+        .ranking-box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 1px solid #0f0; width: 300px; max-height: 70vh; overflow-y: auto; }
+        .ranking-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; }
+
         #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
@@ -32,9 +37,17 @@
     </div>
 </div>
 
+<div id="ranking-modal" onclick="this.style.display='none'">
+    <div class="ranking-box" onclick="event.stopPropagation()">
+        <h3 style="color:#0f0; text-align:center; margin-top:0">RANKING</h3>
+        <div id="ranking-list"></div>
+        <button onclick="document.getElementById('ranking-modal').style.display='none'">FECHAR</button>
+    </div>
+</div>
+
 <div id="game-header">
     <div id="puzzle-id">#1</div>
-    <div id="top-player">CARREGANDO...</div>
+    <div id="top-player" onclick="showRanking()">CARREGANDO...</div>
     <div id="user-info">---</div>
 </div>
 
@@ -45,6 +58,7 @@
 <script>
     let user = "";
     let level = 1;
+    let globalData = null;
 
     async function hashPassword(string) {
         const utf8 = new TextEncoder().encode(string);
@@ -65,11 +79,7 @@
     async function login() {
         const uInput = document.getElementById('username-input').value.trim();
         const pInput = document.getElementById('password-input').value.trim();
-        if (!uInput || !pInput) return alert("Preencha usuário e senha!");
-
-        const btn = document.getElementById('login-btn');
-        btn.disabled = true;
-        btn.innerText = "VERIFICANDO...";
+        if (!uInput || !pInput) return alert("Preencha tudo!");
 
         user = uInput;
         const hashedPass = await hashPassword(pInput);
@@ -79,37 +89,30 @@
     async function syncData(isInitial = false, providedPass = null) {
         try {
             const data = await callAPI('GET');
-            const content = JSON.parse(atob(data.content));
+            globalData = JSON.parse(atob(data.content));
             
-            if (content.players[user]) {
-                const userData = content.players[user];
+            if (globalData.players[user]) {
+                const userData = globalData.players[user];
                 if (isInitial && userData.pass !== providedPass) {
                     alert("Senha incorreta!");
-                    document.getElementById('login-btn').disabled = false;
-                    document.getElementById('login-btn').innerText = "ACESSAR / CRIAR";
+                    location.reload();
                     return;
                 }
                 level = userData.level;
             } else if (isInitial) {
                 level = 1;
-                content.players[user] = { 
-                    level: 1, 
-                    pass: providedPass,
-                    lastUpdate: Date.now()
-                };
+                globalData.players[user] = { level: 1, pass: providedPass, lastUpdate: Date.now() };
                 await callAPI('PUT', {
                     message: `Novo user: ${user}`,
-                    content: btoa(JSON.stringify(content, null, 2)),
+                    content: btoa(JSON.stringify(globalData, null, 2)),
                     sha: data.sha
                 });
             }
 
-            // RANKING COM DESEMPATE POR TEMPO
             let leader = { name: "---", lvl: 0, time: Infinity };
-            for (let p in content.players) {
-                const pLvl = content.players[p].level;
-                const pTime = content.players[p].lastUpdate || 0;
-
+            for (let p in globalData.players) {
+                const pLvl = globalData.players[p].level;
+                const pTime = globalData.players[p].lastUpdate || 0;
                 if (pLvl > leader.lvl || (pLvl === leader.lvl && pTime < leader.time)) {
                     leader = { name: p, lvl: pLvl, time: pTime };
                 }
@@ -117,7 +120,7 @@
 
             document.getElementById('puzzle-id').innerText = `#${level}`;
             document.getElementById('user-info').innerText = user.toUpperCase();
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (LVL ${leader.lvl})`;
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span> (Está no nível ${leader.lvl})`;
             
             if (isInitial) {
                 localStorage.setItem('p_user', user);
@@ -125,10 +128,24 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
             }
-        } catch (e) {
-            console.error(e);
-            document.getElementById('login-btn').disabled = false;
-        }
+        } catch (e) { console.error(e); }
+    }
+
+    function showRanking() {
+        if (!globalData) return;
+        const list = document.getElementById('ranking-list');
+        list.innerHTML = "";
+        
+        const sorted = Object.entries(globalData.players)
+            .sort((a, b) => b[1].level - a[1].level || a[1].lastUpdate - b[1].lastUpdate);
+
+        sorted.forEach(([name, data], index) => {
+            list.innerHTML += `<div class="ranking-item">
+                <span>${index + 1}. ${name}</span>
+                <span style="color:#0f0">LVL ${data.level}</span>
+            </div>`;
+        });
+        document.getElementById('ranking-modal').style.display = 'flex';
     }
 
     window.addEventListener('message', async (e) => {
@@ -136,27 +153,21 @@
             level++;
             const data = await callAPI('GET');
             const content = JSON.parse(atob(data.content));
-            
             content.players[user].level = level;
-            content.players[user].lastUpdate = Date.now(); // Salva o timestamp exato
-
+            content.players[user].lastUpdate = Date.now();
             await callAPI('PUT', {
                 message: `Lvl ${level}: ${user}`,
                 content: btoa(JSON.stringify(content, null, 2)),
                 sha: data.sha
             });
-            syncData(); 
+            syncData();
             document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
         }
     });
 
     window.onload = async () => {
-        const savedUser = localStorage.getItem('p_user');
-        const savedHash = localStorage.getItem('p_hash');
-        if(savedUser && savedHash) {
-            user = savedUser;
-            await syncData(true, savedHash);
-        }
+        const u = localStorage.getItem('p_user'), h = localStorage.getItem('p_hash');
+        if(u && h) { user = u; await syncData(true, h); }
     }
 </script>
 </body>
