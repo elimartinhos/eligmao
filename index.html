@@ -6,27 +6,19 @@
     <title>ELIGMAO - Online</title>
     <style>
         body { background: black; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; color: white; }
-        
-        #game-header { 
-            width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; 
-            align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; 
-        }
-        
+        #game-header { width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; background: rgba(0,0,0,0.8); }
         #puzzle-id { color: white; font-size: 24px; font-weight: bold; width: 80px; }
         #top-player { color: #aaa; font-size: 14px; text-align: center; flex-grow: 1; text-transform: uppercase; }
         #top-player span { color: #0f0; font-weight: bold; }
         #user-info { color: #0f0; font-size: 16px; font-weight: bold; width: 150px; text-align: right; }
-
         #login-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #1a1a1a; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
         input { padding: 12px; width: 220px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin-bottom: 20px; font-size: 16px; outline: none; text-align: center; }
-        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; }
+        button { padding: 12px 30px; background: #0f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: black; transition: 0.3s; }
         button:disabled { background: #555; cursor: not-allowed; }
-
-        #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 50px; }
+        #scale-container { flex: 1; display: flex; justify-content: center; align-items: center; transform: scale(0.85); margin-top: 60px; }
         #wrapper { width: 380px; height: 620px; }
         #puzzle-frame { width: 100%; height: 100%; border: none; background: #1a1a1a; border-radius: 20px; }
-        
         #admin-panel { position: fixed; bottom: 20px; left: 20px; background: red; padding: 10px; border-radius: 5px; display: none; z-index: 10000; }
     </style>
 </head>
@@ -34,8 +26,8 @@
 
 <div id="login-screen">
     <div class="login-box">
-        <h2 style="margin-top:0">ENTRAR / CRIAR</h2>
-        <input type="text" id="username-input" placeholder="Usuário (máx 12)" maxlength="12">
+        <h2>ENTRAR / CRIAR</h2>
+        <input type="text" id="username-input" placeholder="Teu nome (máx 12)" maxlength="12">
         <br>
         <button id="login-btn" onclick="login()">ACESSAR</button>
     </div>
@@ -47,22 +39,26 @@
     <div id="user-info">---</div>
 </div>
 
-<div id="admin-panel">
-    ADMIN: <button onclick="skip()" style="cursor:pointer">SKIP</button>
-</div>
+<div id="admin-panel">ADMIN: <button onclick="skip()">SKIP</button></div>
 
 <div id="scale-container">
     <div id="wrapper"><iframe id="puzzle-frame" src="about:blank"></iframe></div>
 </div>
 
 <script>
+    // CONFIGURAÇÕES
     const REPO_OWNER = "elimartinhos";
     const REPO_NAME = "eligmao";
     const FILE_PATH = "data.json";
 
-    // Pega o token injetado pelo Vercel. 
-    // Nota: Se rodar localmente, você pode colar o token aqui para testar.
-    const GITHUB_TOKEN = "ghp_seu_token_aqui_ou_deixe_vazio_para_o_vercel_injetar";
+    /**
+     * TENTATIVA DE LER O TOKEN:
+     * 1. Tenta ler de um objeto global que o Vercel pode injetar
+     * 2. Se falhar, você pode colocar o token aqui para teste rápido (MAS O GITHUB VAI RECLAMAR)
+     */
+    const GITHUB_TOKEN = "[[NEXT_PUBLIC_GITHUB_TOKEN]]".replace("[[", "").replace("]]", ""); 
+    // ^ Esta técnica acima é para sistemas de build. Se o Vercel não trocar o texto, 
+    // o código abaixo vai gerenciar o erro sem travar.
 
     let user = "";
     let level = 1;
@@ -71,57 +67,64 @@
         const input = document.getElementById('username-input').value.trim();
         if (!input) return;
 
+        user = input;
+        localStorage.setItem('p_user', user);
+        
         const btn = document.getElementById('login-btn');
         btn.disabled = true;
         btn.innerText = "CONECTANDO...";
 
-        user = input;
-        localStorage.setItem('p_user', user);
-        
         if(user.toLowerCase() === 'admin') document.getElementById('admin-panel').style.display = 'block';
         
         await syncData(true);
     }
 
-    async function syncData(isInitial = false) {
-        // Fallback para caso a variável do Vercel não tenha sido injetada corretamente no build
-        const token = (GITHUB_TOKEN.startsWith("ghp_")) ? GITHUB_TOKEN : ""; 
-        
-        if (!token) {
-            console.error("Token ausente.");
-            // Se falhar, tentamos prosseguir apenas localmente para não travar o usuário
-            document.getElementById('top-player').innerText = "MODO OFFLINE (SEM TOKEN)";
-            if (isInitial) {
-                document.getElementById('login-screen').style.display = 'none';
-                loadPuzzle();
-            }
-            return;
-        }
+    async function fetchGithub(method = "GET", body = null, specificSha = null) {
+        // Se o token estiver vazio ou for o placeholder, o login não vai funcionar online
+        const token = GITHUB_TOKEN.includes("NEXT_PUBLIC") ? "" : GITHUB_TOKEN;
 
+        const headers = {
+            "Authorization": `token ${token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        };
+
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+
+        const res = await fetch(url, options);
+        if (!res.ok) throw new Error("Erro na comunicação com GitHub");
+        return await res.json();
+    }
+
+    async function syncData(isInitial = false) {
         try {
-            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                headers: { "Authorization": `token ${token}`, "Cache-Control": "no-cache" }
-            });
-            const data = await res.json();
+            const data = await fetchGithub("GET");
             const content = JSON.parse(atob(data.content));
             
-            // Se o usuário não existe, ele começa no 1
             level = content.players[user] || 1;
 
-            // Se for novo login, já registra no GitHub
+            // Se for novo usuário, salva no GitHub
             if (isInitial && !content.players[user]) {
-                await saveToGithub(content, data.sha);
+                content.players[user] = level;
+                await fetchGithub("PUT", {
+                    message: `Novo jogador: ${user}`,
+                    content: btoa(JSON.stringify(content, null, 2)),
+                    sha: data.sha
+                });
             }
 
             updateUI(content);
-            
             if (isInitial) {
                 document.getElementById('login-screen').style.display = 'none';
                 loadPuzzle();
             }
         } catch (e) {
-            console.error("Erro na API:", e);
-            btnReset();
+            console.error(e);
+            alert("Erro de conexão. Verifique se o Token no Vercel está correto.");
+            document.getElementById('login-btn').disabled = false;
+            document.getElementById('login-btn').innerText = "ACESSAR";
         }
     }
 
@@ -135,60 +138,30 @@
         document.getElementById('user-info').innerText = user.toUpperCase();
     }
 
-    async function saveToGithub(existingContent = null, oldSha = null) {
-        const token = (GITHUB_TOKEN.startsWith("ghp_")) ? GITHUB_TOKEN : "";
-        if(!token) return;
-
-        let currentContent = existingContent;
-        let sha = oldSha;
-
-        if (!currentContent || !sha) {
-            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                headers: { "Authorization": `token ${token}`, "Cache-Control": "no-cache" }
-            });
-            const data = await res.json();
-            currentContent = JSON.parse(atob(data.content));
-            sha = data.sha;
-        }
-
-        currentContent.players[user] = level;
-
-        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-            method: "PUT",
-            headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: `Update ${user} -> ${level}`,
-                content: btoa(JSON.stringify(currentContent, null, 2)),
-                sha: sha
-            })
-        });
-    }
-
     function loadPuzzle() {
         document.getElementById('puzzle-frame').src = `puzzle${level}.html`;
-    }
-
-    function btnReset() {
-        const btn = document.getElementById('login-btn');
-        btn.disabled = false;
-        btn.innerText = "ACESSAR";
     }
 
     window.addEventListener('message', async (e) => {
         if (e.data === 'nextPuzzle') {
             level++;
-            await saveToGithub();
-            syncData();
-            loadPuzzle();
+            try {
+                const data = await fetchGithub("GET");
+                const content = JSON.parse(atob(data.content));
+                content.players[user] = level;
+                await fetchGithub("PUT", {
+                    message: `${user} passou para o nível ${level}`,
+                    content: btoa(JSON.stringify(content, null, 2)),
+                    sha: data.sha
+                });
+                syncData();
+                loadPuzzle();
+            } catch (e) { console.error(e); }
         }
     });
 
     function skip() {
-        level++;
-        saveToGithub().then(() => {
-            syncData();
-            loadPuzzle();
-        });
+        window.postMessage('nextPuzzle', '*');
     }
 
     window.onload = () => {
