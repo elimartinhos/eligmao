@@ -62,10 +62,9 @@
 </div>
 
 <script>
-    // --- CONFIGURAÇÃO MANUAL ---
     const REPO_OWNER = "elimartinhos"; 
     const REPO_NAME = "eligmao";
-    const GITHUB_TOKEN = "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"; // O token agora fica escondido aqui no código
+    const GITHUB_TOKEN = "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"; 
     const FILE_PATH = "data.json";
 
     let user = "";
@@ -75,20 +74,20 @@
     async function hashPassword(string) {
         const utf8 = new TextEncoder().encode(string);
         const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     async function githubAPI(method, body = null) {
         const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
         const headers = {
-            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Authorization': `Bearer ${GITHUB_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json'
         };
         const options = { method, headers };
         if (body) options.body = JSON.stringify(body);
         const response = await fetch(url, options);
+        if (!response.ok) return null;
         return await response.json();
     }
 
@@ -104,6 +103,8 @@
     async function syncData(isInitial = false, providedPass = null) {
         try {
             const data = await githubAPI('GET');
+            if (!data) throw new Error("Falha na autenticação ou arquivo inexistente.");
+            
             globalData = JSON.parse(atob(data.content.replace(/\n/g, '')));
             
             if (globalData.players[user]) {
@@ -124,6 +125,9 @@
                 });
             }
 
+            document.getElementById('puzzle-id').innerText = `# ${level}`;
+            document.getElementById('user-info').innerText = user.toUpperCase();
+            
             let leader = { name: "---", lvl: 0, time: Infinity };
             for (let p in globalData.players) {
                 const pLvl = globalData.players[p].level;
@@ -132,10 +136,7 @@
                     leader = { name: p, lvl: pLvl, time: pTime };
                 }
             }
-
-            document.getElementById('puzzle-id').innerText = `# ${level}`;
-            document.getElementById('user-info').innerText = user.toUpperCase();
-            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(ESTÁ NO # ${leader.lvl})`;
+            document.getElementById('top-player').innerHTML = `LÍDER: <span>${leader.name}</span><br>(# ${leader.lvl})`;
             
             if (isInitial) {
                 localStorage.setItem('p_user', user);
@@ -145,7 +146,7 @@
             }
         } catch (e) { 
             console.error(e);
-            alert("Erro de conexão. Verifique o Token e Repo no código.");
+            alert("Erro: Verifique se o Token é válido e se o arquivo data.json existe no repositório.");
         }
     }
 
@@ -168,6 +169,7 @@
         if (e.data === 'nextPuzzle') {
             level++;
             const data = await githubAPI('GET');
+            if (!data) return;
             const content = JSON.parse(atob(data.content.replace(/\n/g, '')));
             content.players[user].level = level;
             content.players[user].lastUpdate = Date.now();
@@ -187,5 +189,4 @@
     }
 </script>
 </body>
-
 </html>
